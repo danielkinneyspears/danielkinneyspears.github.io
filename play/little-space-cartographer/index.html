@@ -106,13 +106,21 @@
   #start .slot:hover{border-color:#4CB7C6}
   #start .slot .meta{color:#586273;font-size:10px}
   #start .slot .wipe{color:#71343B;font-size:10px;padding:2px 6px}
+  /* F4 (Lane E) — a FILLED slot carries the save's own little rock: a 64px chunky-pixel thumbnail
+     (renderRockThumb, 11c) left of the name, same ink-panel row otherwise. Empty slots are untouched. */
+  #start .slot.filled{padding:9px 12px 9px 9px;justify-content:flex-start}
+  #start .sThumb{width:64px;height:64px;flex:none;margin-right:12px;border:2px solid #171923;
+        border-radius:6px;background:#12141d;image-rendering:pixelated}
+  #start .sInfo{flex:1;text-align:left;min-width:0;margin-right:8px}
+  #start .sEyebrow{color:#586273;font-size:9px;letter-spacing:1.5px;text-transform:uppercase}
+  #start .sName{color:#F3F0E7;font-size:14px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #archive{width:340px;max-height:230px;overflow-y:auto;margin-top:20px}
   #archive .ahead{color:#719C5D;font-size:10px;letter-spacing:2px;margin-bottom:8px;text-align:center}
   #archive .aempty{color:#586273;font-size:11px;text-align:center;line-height:1.5;padding:0 20px}
   #archive .afork{background:#1e222e;border-left:2px solid #343B4A;border-radius:0 6px 6px 0;padding:8px 12px;margin:5px 0;
         display:flex;flex-direction:column;gap:2px}
   #archive .afork.anew{border-left-color:#719C5D;background:#20261f}
-  #archive .atitle{color:#D9D6CC;font-size:12px}
+  #archive .atitle{color:#D9D6CC;font-size:13px;font-family:'Pixelify Sans',monospace;letter-spacing:0.5px}
   #archive .ameta{color:#586273;font-size:9px;letter-spacing:1px}
   #archive .averse{color:#D2CEC0;font-size:11px;font-style:italic;font-family:'Space Grotesk',serif;margin-top:4px}
   #archive .aplay{color:#8B94A6;font-style:normal;font-size:8.5px;letter-spacing:1px}
@@ -153,9 +161,12 @@
   #forge #fName{flex:1;background:#0e1017;border:1px solid #3a4358;border-radius:6px;color:#F3F0E7;
     font-family:'Pixelify Sans',monospace;font-size:13px;padding:6px 9px;outline:none}
   #forge .fnote{font-size:10px;color:#7B8394;line-height:1.6;margin:14px 0}
-  #forge .flaunch{text-align:center;font-size:13px;letter-spacing:2px;color:#12141c;background:#C6A8E6;
-    border-radius:8px;padding:11px;margin-top:6px;cursor:pointer}
-  #forge .flaunch:hover{background:#d8c2f0}
+  /* F4 (Lane E) — same ink-panel-button vocabulary as a title slot: 2px border, chunky drop shadow,
+     accent border/text instead of a solid-fill pill. */
+  #forge .flaunch{text-align:center;font-size:13px;letter-spacing:2px;color:#C6A8E6;background:#242936;
+    border:2px solid #C6A8E6;border-radius:9px;padding:11px;margin-top:10px;cursor:pointer;
+    box-shadow:2px 2px 0 rgba(15,17,26,.6)}
+  #forge .flaunch:hover{background:#2f2438;border-color:#D8C2F0;color:#D8C2F0}
   /* the config panels live INSIDE the menu as sub-screens, not separate popups */
   #settings #panel,#settings .cfgP{position:static;transform:none;left:auto;top:auto;z-index:auto;
     background:transparent;border:none;box-shadow:none;padding:12px 16px 18px;width:auto;margin:0}
@@ -168,6 +179,11 @@
   #settings .trk .dur{color:#586273;font-size:9px}
   #settings .quit{margin-top:18px;text-align:center;color:#71343B;font-size:11px;letter-spacing:2px;cursor:pointer}
   #settings .note{color:#3d4657;font-size:9px;margin-top:10px;line-height:1.5}
+  /* M1(2) — FOCUS MANAGER ring: a single reusable overlay, positioned in JS (03e) over whatever
+     actionable element currently has pad/keyboard focus inside an open DOM panel. */
+  #focusRing{position:fixed;z-index:60;display:none;pointer-events:none;border:2px solid #E6A93B;
+    border-radius:8px;box-shadow:0 0 0 2px rgba(230,169,59,.35),0 0 10px rgba(230,169,59,.5);
+    transition:left .08s ease-out,top .08s ease-out,width .08s ease-out,height .08s ease-out}
 </style>
 </head>
 <body>
@@ -720,6 +736,28 @@ for(let i=0;i<4200&&_made<1400;i++){           // the halo: hermits, out past th
 }
 // (the old decorative `nebs` lobes were folded into the unified gasClouds above)
 
+// ─── F3 — PACE THE DAY: exposed for other lanes (guarded: `typeof isNight==='function'&&isNight()`
+// — e.g. Lane D triples village talk after dark). Both functions are plain declarations (hoisted),
+// so they're safe to reference from anywhere at CALL time even though `surf`/`onFoot`/`vdot` are
+// declared in later chunks (04a/09a) — by the time either is actually invoked, every chunk has
+// already finished its own top-level code. Never call either at top level from an earlier chunk. ───
+function isNight(){
+  if(typeof surf==='undefined'||!surf||!surf.sunL)return false;
+  const fr=(typeof onFoot!=='undefined'&&onFoot&&surf.botF)?surf.botF:surf.shipF;
+  if(!fr)return false;
+  return vdot(fr.d,surf.sunL)<-0.06;
+}
+// F1 — the day/night TURN: fires sfx('day')/sfx('night') exactly once per transition. The function
+// lives here with isNight() (same lit-threshold contract); the actual per-frame call site is in
+// frameSurface (12b), the only place in this lane that already ticks once per frame regardless of
+// mode — an intra-lane cross-chunk call, same hoisting guarantee as any other guarded call here.
+function stepDayNightTurn(lit){
+  if(typeof surf==='undefined'||!surf)return;
+  const isN=lit<-0.06;
+  if(surf._nightPrev===undefined){surf._nightPrev=isN;return;}   // the day/night you arrive on doesn't chime
+  if(isN!==surf._nightPrev){surf._nightPrev=isN;typeof sfx==='function'&&sfx(isN?'night':'day');}
+}
+
 // ─── THE HOLE — bigger now; it should dwarf a star ───
 const BH={x:0,y:0,z:0,hr:13};                            // the next fibonacci rung up (233·unit) — it dwarfs a big star
 // STRANGENESS = how deep toward the core a place sits. The black hole is the run's destination, and the
@@ -789,13 +827,24 @@ function gainCultMat(kind,v){if(!kind||!v)return;game.mat2=game.mat2||{};game.ma
 const REFGOODS={
   thatch:     {label:'Thatch Bundle', col:[190,150,90],  note:'reed and hull-iron, bound tight'},
   hearthglass:{label:'Hearth-glass',  col:[120,205,225], note:'blue melt tempered in forge heat'},
-  cairnframe: {label:'Cairn Frame',   col:[150,140,130], note:'stacked stone, iron-braced'}};
-const REFGOODS_ORDER=['thatch','hearthglass','cairnframe'];
+  cairnframe: {label:'Cairn Frame',   col:[150,140,130], note:'stacked stone, iron-braced'},
+  // TOWN ERA / STEAM P3 (docs/STEAM_REVIEW.md P3) — the ladder's MIDDLE: a good that needs two culture
+  // materials off two DIFFERENT world classes, not a bigger pile of one. Sourcing stays the depth
+  // (route two kinds of world, not stack one), per dks's own framing and TOWN_ERA.md §3.
+  echofuse:   {label:'Echo-fuse',    col:[165,160,150], note:'icy melt fused hot against live volcanic glass — an icy world and a vented one, both'},
+  voidweave:  {label:'Voidweave',    col:[100,130,125], note:'deep-core lattice bound in living fiber — past the strange line, and a green world besides'}};
+const REFGOODS_ORDER=['thatch','hearthglass','cairnframe','echofuse','voidweave'];
 const REFINE_RECIPES={
   thatch:      {out:'thatch',      outN:1, in:{reedfiber:2,iron:1},      label:'THATCH BUNDLE', desc:'reed and hull-iron, bound tight — the base upgrade good'},
   hearthglass: {out:'hearthglass', outN:1, in:{bluecore:2,forgestone:1}, label:'HEARTH-GLASS',   desc:'blue melt tempered in forge heat — for the well and the hearth'},
-  cairnframe:  {out:'cairnframe',  outN:1, in:{caironiron:1,cutstone:2}, label:'CAIRN FRAME',    desc:'stacked stone, iron-braced — for the workshop and the tavern'}};
-const REFINE_ORDER=['thatch','hearthglass','cairnframe'];
+  cairnframe:  {out:'cairnframe',  outN:1, in:{caironiron:1,cutstone:2}, label:'CAIRN FRAME',    desc:'stacked stone, iron-braced — for the workshop and the tavern'},
+  // STEAM P3 — cross-world refines: each needs two culture materials sourced from different world
+  // classes (icy + rocky/molten for echofuse; deep-core + living for voidweave), so the late ladder
+  // forces route planning instead of a shopping trip. Reachability simulated at 200/200 seeds — see
+  // the P3 lane report.
+  echofuse:    {out:'echofuse',    outN:1, in:{bluecore:2,forgestone:1}, label:'ECHO-FUSE',     desc:'an icy world\'s melt, tempered against a vented rocky one — two different kinds of ground'},
+  voidweave:   {out:'voidweave',   outN:1, in:{voidlattice:1,reedfiber:2},label:'VOIDWEAVE',     desc:'lattice from past the strange line, bound in fiber off a green world — deep and green, both'}};
+const REFINE_ORDER=['thatch','hearthglass','cairnframe','echofuse','voidweave'];
 function matLabelOf(key){return MATTER[key]?MATTER[key].label:(CULTMAT[key]?CULTMAT[key].label:key);}
 // the REFINE tab's cost cell is narrow (matches RAISE's flat "◆ 12" strings) — a short form for the
 // tighter chip, same abbreviate-for-space move wantIcon already makes off want.slice(0,3).
@@ -1278,8 +1327,24 @@ function freshGame(){return{matter:12,mat:{iron:12},mat2:{},goods:{},infraTier:{
   chart:{charted:{},pins:{},landed:{},found:{}},collected:{},started:false,hoverUnlocked:false};}
 let SLOT=null, game=freshGame(), chart=game.chart, chartDirty=false;
 for(const a of anchors)chart.charted[a.vi]=1;
+// ─── SAVE STORE (docs/STEAM_REVIEW.md C3) — one seam for every persisted key. In a browser it is
+// localStorage, exactly as before. Under the Steam wrapper (wrapper/) it is the file backend the
+// preload exposes as window.__wrapper.save — synchronous IPC, write-then-rename on the main side —
+// so Steam Cloud can sync a folder and a reinstall can't wipe a slot. Slots go through it now;
+// the other keys (archive, tutdone, fx, shell, audio) migrate as their chunks free up. ───
+const SaveStore=(()=>{
+  const W=(typeof window!=='undefined'&&window.__wrapper&&window.__wrapper.save)||null;
+  if(W&&typeof W.getSync==='function')return {backend:'wrapper',
+    get:k=>{try{return W.getSync(k);}catch{return null;}},
+    set:(k,v)=>{try{return !!W.setSync(k,v);}catch{return false;}},
+    remove:k=>{try{W.removeSync(k);}catch{}}};
+  return {backend:'localStorage',
+    get:k=>{try{return localStorage.getItem(k);}catch{return null;}},
+    set:(k,v)=>{try{localStorage.setItem(k,v);return true;}catch{return false;}},
+    remove:k=>{try{localStorage.removeItem(k);}catch{}}};
+})();
 const slotKey=s=>'spacegame.slot'+s;
-function loadSlot(s){try{const g=JSON.parse(localStorage.getItem(slotKey(s)));if(!g)return null;
+function loadSlot(s){try{const g=JSON.parse(SaveStore.get(slotKey(s)));if(!g)return null;
   g.chart=g.chart||{charted:{},pins:{},landed:{},found:{}};g.collected=g.collected||{};g.beacons=g.beacons||{[HOME_VI]:1};
   g.built=g.built||[];g.found=g.found||{};g.crew=g.crew||[];
   if(g.gseed==null)g.gseed=20260619;                      // saves from before per-run galaxies keep the original one
@@ -1292,7 +1357,7 @@ function loadSlot(s){try{const g=JSON.parse(localStorage.getItem(slotKey(s)));if
   if(g.pendingOrbit===undefined)g.pendingOrbit=null;        // saves from before the Cradle rework
   g.shipDeployed=!!g.shipDeployed;
   return g;}catch{return null;}}
-function saveSlot(){if(SLOT==null)return;try{localStorage.setItem(slotKey(SLOT),JSON.stringify(game));}catch{}}
+function saveSlot(){if(SLOT==null)return;SaveStore.set(slotKey(SLOT),JSON.stringify(game));}
 function slotSummary(s){const g=loadSlot(s);if(!g)return null;
   return{beacons:Object.keys(g.beacons||{}).length,matter:g.matter|0,charted:Object.keys((g.chart||{}).charted||{}).length};}
 function beginGame(g,slot){SLOT=slot;game=g;chart=game.chart;
@@ -1529,6 +1594,29 @@ function personaFor(f){
   const h=strHash((f.title||'')+(f.n||0))&1;
   return f.cause==='fuel'?(h?'reckless':'haunted'):f.cause==='core'?(h?'seeker':'emptied'):(h?'content':'rooted');
 }
+// ═══ STEAM REVIEW S3 — THE ARCHIVE ON THE MAP: the forks' worlds are known (vi, on every Archive
+// entry) so the chart and the reticle can name them without re-deriving anything. ═══
+// forkAtWorld: the most recent fork who stayed at world vi, or null. 07b's chart reads this to draw
+// a dim pin; 07a's HANDOFF reads it to add a fork's title to the space reticle readout.
+function forkAtWorld(vi){
+  if(vi==null)return null;
+  const a=loadArchive();
+  for(let i=a.length-1;i>=0;i--)if(a[i].vi===vi)return a[i].title;
+  return null;
+}
+// forkLandingLine: one persona line, spoken (as a toast) the moment you land where a fork stayed —
+// reuses the exact PERSONAS voice a fork already talks in aboard your shell, so a world with no
+// settler encounter yet still tells you someone you were is under this ground. 09b's landOn HANDOFF
+// calls this once surf.vi is set.
+function forkLandingLine(vi){
+  if(vi==null)return null;
+  const a=loadArchive();
+  for(let i=a.length-1;i>=0;i--){const f=a[i];if(f.vi===vi){
+    const p=PERSONAS[personaFor(f)]||PERSONAS.content;
+    return f.title+' stayed here. '+p.l[(Math.random()*p.l.length)|0];
+  }}
+  return null;
+}
 function crewHas(f){return !!(game.crew&&f&&game.crew.some(c=>c.n===f.n&&c.world===f.world));}
 function recruit(f){if(!f||crewHas(f))return false;game.crew=game.crew||[];
   const c=Object.assign({},f);c.persona=personaFor(f);
@@ -1536,6 +1624,7 @@ function recruit(f){if(!f||crewHas(f))return false;game.crew=game.crew||[];
   game.crew.push(c);saveSlot();paintRes();return true;}
 let lastStayed=null;
 function stayHere(cause){                 // END THE RUN: this drifter becomes a fork, and the Archive grows
+  if(cause==='fuel')typeof achieve==='function'&&achieve('stranded');
   if(SLOT==null)return null;
   lastStayed=makeFork(cause||'stay');
   saveSlot();
@@ -1566,6 +1655,8 @@ function reachBlack(){
   reachBlackFinish();
 }
 function reachBlackFinish(){
+  typeof storyBeat==='function'&&storyBeat('core_answer');   // S1 — the question asked at the forge, answered here
+  typeof achieve==='function'&&achieve('core');
   shake(2.6);freeze(0.1);
   const o={},dp=project(BH.x,BH.y,BH.z,o),wx=dp>0?o.x:W/2,wy=dp>0?o.y:H/2;
   startWipe(wx,wy,[8,8,12],()=>stayHere('core'));
@@ -1585,6 +1676,45 @@ document.getElementById('threshold').addEventListener('click',e=>{
   const row=e.target.closest('.throw');
   if(row){const i=+row.getAttribute('data-i');game.crew[i]._release=!game.crew[i]._release;renderThreshold();return;}
   if(e.target.id==='thCross')crossThreshold();});
+// ─── ACHIEVEMENTS (docs/STEAM_REVIEW.md P5) — written as fork titles, in the letters' register.
+// Each is a fact about what happened, not a chore. achieve(id) records once per save
+// (game.achieved), toasts the title the first time, and forwards to the Steam wrapper when one
+// is present (window.__wrapper.achieve — steamworks.js lands on the main side later). Call sites
+// across the game are guarded: typeof achieve==='function'&&achieve('id'). Unknown ids no-op. ───
+const ACHIEVEMENTS={
+  first_flight:  {t:'One Light Lit',            d:'fired the engine and left the first rock behind'},
+  first_landing: {t:'Set Down',                 d:'landed on a world that was not yours'},
+  first_contact: {t:'A Hand You Cannot Read',   d:'met a people and could not read them yet'},
+  first_letters: {t:'Twenty-six Letters',       d:'learned one people well enough to read them'},
+  hoverboard:    {t:'Off the Ground',           d:'built the board'},
+  trick_chain:   {t:'Landed It',                d:'landed two tricks without a fall'},
+  grapple_snap:  {t:'The Vine Gave',            d:'pulled on a plant until it let go'},
+  hard_landing:  {t:'Bounced',                  d:'came down harder than the drop ship liked'},
+  first_town:    {t:'Someone Stayed',           d:'a trader asked to stay, and you said yes'},
+  first_letter:  {t:'A Letter at the Door',     d:'someone left, and wrote down why'},
+  bond:          {t:'A Path Wore In',           d:'two neighbors grew close enough to wear a path'},
+  tavern:        {t:'Somewhere to Gather',      d:'a thriving neighbor opened their doors'},
+  tier3:         {t:'Raised Twice',             d:'took a building to its highest tier'},
+  tidefolk:      {t:'Seen Twice',               d:'met the tide-folk on a shore'},
+  twenty_two:    {t:'Twenty-two Hands',         d:'every people in the survey, aboard at once'},
+  full_sphere:   {t:'No Bare Ground',           d:'filled the rock, and the rock said so'},
+  renamed:       {t:'Called It Something',      d:'gave the rock a name'},
+  elder:         {t:'Wrote It Down',            d:'a townie grew old here and said so on paper'},
+  birth:         {t:'A Small One',              d:'a child was born in your village'},
+  homestead:     {t:'Stayed on Purpose',        d:'built the last thing, and stayed'},
+  stranded:      {t:'Burned Too Far',           d:'the tank read empty a jump too late'},
+  core:          {t:'Reached the Black',        d:'carried the light all the way in'}};
+function achieve(id){
+  const A=ACHIEVEMENTS[id];if(!A)return false;
+  if(typeof game==='undefined'||!game)return false;
+  game.achieved=game.achieved||{};
+  if(game.achieved[id])return false;
+  game.achieved[id]=Date.now();
+  if(typeof toast==='function')toast('✦ '+A.t.toLowerCase()+' · '+A.d,4.5);
+  if(typeof sfx==='function')sfx('ui_confirm');
+  try{if(window.__wrapper&&window.__wrapper.achieve)window.__wrapper.achieve(id);}catch(e){}
+  if(typeof saveSlot==='function')saveSlot();
+  return true;}
 // ─── THE FIRST LIGHT — the opening. You wake with no memory, stranded on a rock, ship dry. Gathering
 // matter to raise a first beacon teaches the whole loop: gather → light → chart → fly. Only the very
 // first drifter wakes amnesiac; once you have past selves in the Archive, you carry their memory. ───
@@ -1635,10 +1765,25 @@ function endTutorial(){game.tut=null;try{localStorage.setItem('fkvox.tutdone','1
   const el=document.getElementById('tutHint');if(el)el.style.display='none';saveSlot();}
 document.getElementById('tutHint').addEventListener('click',e=>{if(e.target.id==='tutSkip')endTutorial();});
 // ─── the START screen: three slots, new/continue/wipe, and a dev-unlock for testing ───
+// F4 (Lane E) — a filled slot now shows the save's own rock: a 64px thumbnail (renderRockThumb, 11c)
+// built from that slot's craft, its chosen/given name, and beacons·charted as a small eyebrow line.
+// An empty slot stays the plain single line it always was — nothing to render yet.
 function renderStart(){const box=document.getElementById('slots');box.innerHTML='';
-  for(let s=0;s<3;s++){const sum=slotSummary(s),d=document.createElement('div');d.className='slot';
-    d.innerHTML='<span>Slot '+(s+1)+' · '+(sum?'<span class=meta>'+sum.beacons+' beacons · '+sum.matter+' matter · '+sum.charted+' charted</span>':'<span class=meta>new</span>')+'</span>'+
-      (sum?'<span class="wipe" data-w="'+s+'">wipe</span>':'');
+  for(let s=0;s<3;s++){
+    const g=loadSlot(s);
+    const sum=g?{beacons:Object.keys(g.beacons||{}).length,matter:g.matter|0,charted:Object.keys((g.chart||{}).charted||{}).length}:null;
+    const d=document.createElement('div');d.className='slot'+(sum?' filled':'');
+    if(sum){
+      const rockName=g.rockName||(g.craft&&g.craft.name)||'the rock';
+      const thumb=renderRockThumb(g.craft||defaultCraft(),64);thumb.className='sThumb';
+      const info=document.createElement('div');info.className='sInfo';
+      info.innerHTML='<div class="sEyebrow">SLOT '+(s+1)+' &middot; '+sum.beacons+' beacons &middot; '+sum.charted+' charted</div>'
+        +'<div class="sName">'+rockName+'</div>';
+      const wipe=document.createElement('span');wipe.className='wipe';wipe.textContent='wipe';wipe.setAttribute('data-w',s);
+      d.appendChild(thumb);d.appendChild(info);d.appendChild(wipe);
+    }else{
+      d.innerHTML='<span>Slot '+(s+1)+' &middot; <span class="meta">new</span></span>';
+    }
     d.addEventListener('click',e=>{if(e.target.getAttribute('data-w')!=null){const w=+e.target.getAttribute('data-w');
         localStorage.removeItem(slotKey(w));renderStart();return;}
       const saved=loadSlot(s);
@@ -1721,20 +1866,25 @@ function drawTitlePlanet(cv,cfg,t){const N=22;if(cv.width!==N){cv.width=N;cv.hei
 // ── the flora that grows around the sign ──
 let floraSeeded=false,floraItems=[];
 const FLOWER_COLS=[C.mag,C.gold,C.cyan,C.red,C.viol,C.orange];
-function seedFlora(w,h){floraItems=[];const rnd=()=>Math.random();
+// F4 (Lane E) — pulled the scatter itself out of seedFlora so another screen's own canvas can grow
+// the SAME vines/moss/mushrooms/flowers without touching the title's own floraItems array. The forge
+// (13c) calls this directly to frame its turntable; seedFlora keeps its old behaviour unchanged.
+function seedFloraInto(w,h){const items=[];const rnd=()=>Math.random();
   // vines climb both edges
   for(const side of [0,1]){const n=2;for(let i=0;i<n;i++){
     const x=side?w*(0.90+rnd()*0.06):w*(0.04+rnd()*0.06);
-    floraItems.push({kind:'vine',x,len:h*(0.5+rnd()*0.35),seed:rnd()*6.28,amp:2+rnd()*2,dir:side?-1:1});}}
+    items.push({kind:'vine',x,len:h*(0.5+rnd()*0.35),seed:rnd()*6.28,amp:2+rnd()*2,dir:side?-1:1});}}
   // a base line of moss, mushrooms and flowers — denser at the corners, sparse across the middle
   const N=30;for(let i=0;i<N;i++){const fx=i/(N-1);
     const edge=Math.min(fx,1-fx);const dense=edge<0.22?0.9:0.28;
     if(rnd()>dense)continue;
     const x=fx*w+(rnd()-0.5)*w*0.02, y=h-1-rnd()*3;
     const roll=rnd();
-    if(roll<0.30)floraItems.push({kind:'mush',x,y,s:2+rnd()*2.5,cap:pick([C.red,C.orange,C.viol,C.mag]),seed:rnd()*6.28});
-    else if(roll<0.66)floraItems.push({kind:'flower',x,y,s:3+rnd()*4,col:pick(FLOWER_COLS),seed:rnd()*6.28});
-    else floraItems.push({kind:'moss',x,y,r:2+rnd()*3});}}
+    if(roll<0.30)items.push({kind:'mush',x,y,s:2+rnd()*2.5,cap:pick([C.red,C.orange,C.viol,C.mag]),seed:rnd()*6.28});
+    else if(roll<0.66)items.push({kind:'flower',x,y,s:3+rnd()*4,col:pick(FLOWER_COLS),seed:rnd()*6.28});
+    else items.push({kind:'moss',x,y,r:2+rnd()*3});}
+  return items;}
+function seedFlora(w,h){floraItems=seedFloraInto(w,h);}
 function fpx(ctx,x,y,c){ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';ctx.fillRect(x|0,y|0,1,1);}
 function drawFloraItem(ctx,it,t){
   if(it.kind==='vine'){let px=it.x,py=it.top!=null?it.top:0;
@@ -1815,11 +1965,18 @@ function paintRes(){const el=document.getElementById('res');
   const mat=game.mat||{},chips=MATTER_ORDER.filter(k=>mat[k]>0).map(k=>{const c=MATTER[k].col;return '<span style="color:rgb('+c[0]+','+c[1]+','+c[2]+')">'+mat[k]+' '+MATTER[k].label+'</span>';}).join(' · ');
   const mat2=game.mat2||{},chips2=CULTMAT_ORDER.filter(k=>mat2[k]>0).map(k=>{const c=CULTMAT[k].col;return '<span style="color:rgb('+c[0]+','+c[1]+','+c[2]+')">'+mat2[k]+' '+CULTMAT[k].label+'</span>';}).join(' · ');   // TOWN ERA: culture-material inventory, same chip-row pattern
   const goods=game.goods||{},chipsGd=REFGOODS_ORDER.filter(k=>goods[k]>0).map(k=>{const c=REFGOODS[k].col;return '<span style="color:rgb('+c[0]+','+c[1]+','+c[2]+')">'+goods[k]+' '+REFGOODS[k].label+'</span>';}).join(' · ');   // TOWN ERA Run 3: refined-goods inventory, same chip-row pattern
+  // STEAM P2 (docs/STEAM_REVIEW.md P2) — FUEL AS TENSION: when a target is locked in space, show what
+  // the jump actually costs, not just how full the tank is. reachPct (07a) mirrors the drive's own burn
+  // math (DV[3]*0.6, surge ×2.2) against the straight-line distance at the current throttle, rounded.
+  const rp=(mode==='space'&&typeof reachPct==='function')?reachPct():null;
+  const reachLine=(rp==null)?'':'<div class="r" style="color:'+(rp>90?'#C45151':'#8A94A6')+';font-size:10px">reach &middot; '+rp+'% of tank</div>';
   el.innerHTML='<div class="r">◆ '+matTotal()+' matter</div>'
     +(chips?'<div class="r" style="font-size:9px">'+chips+'</div>':'')
     +(chips2?'<div class="r" style="font-size:9px">❖ '+chips2+'</div>':'')
     +(chipsGd?'<div class="r" style="font-size:9px">⚒ '+chipsGd+'</div>':'')
     +'<div class="r" style="color:#4CB7C6">⛽ fuel<span class="fuelbar"><span class="fuelfill" style="width:'+fp+'%"></span></span></div>'
+    +reachLine
+    +((typeof surf!=='undefined'&&surf&&surf.isRock)?'<div class="r" style="color:#8A94A6;font-size:10px">⌂ '+(game.rockName||'the rock')+'</div>':'')   // S4 hook: reads a chosen rock name once one exists, same fallback everywhere else does
     +'<div class="r" style="color:#719C5D;font-size:10px">✦ '+Object.keys(game.beacons).length+' beacons</div>'
     +((game.crew&&game.crew.length)?'<div class="r" style="color:#C0A6D8;font-size:10px">☍ '+game.crew.length+' aboard</div>':'')
     +'<div class="r" style="color:#8A94A6;font-size:10px">◉ black hole · '+(Math.hypot(ship.x,ship.y,ship.z)|0)+'</div>';}   // the destination — the number falls as you fall inward
@@ -1833,7 +1990,7 @@ const TRACKS=['goodbye','7pm','summer2','between_the_dunes','birds_song','tapere
   'observatory_and_chill_2','lofi_beats_to_ride_dragons_with','rainy_day','brain_empty'];
 const TRACK_TITLES=['goodbye','7pm','Summer','Between The Dunes','Bird’s Song','Tapered Out',
   'Observatory & Chill','Ride Dragons With','Rainy Day','Brain Empty'];
-let audio={on:true,vol:0.55,shuffle:true,pick:0};
+let audio={on:true,vol:0.55,shuffle:true,pick:0,sfxOn:true,sfxVol:0.7};   // F1: sfxOn/sfxVol live on the same persisted object
 try{Object.assign(audio,JSON.parse(localStorage.getItem('spacegame.audio')||'{}'));}catch{}
 const musicEl=document.getElementById('music');musicEl.volume=audio.vol;
 let curTrack=(Math.abs((HOME_VI*2654435761)>>>0))%TRACKS.length, driftingNow=false;
@@ -1844,7 +2001,8 @@ function playTrack(i,restart){curTrack=((i%TRACKS.length)+TRACKS.length)%TRACKS.
 function nextTrack(){if(driftingNow){musicEl.play().catch(()=>{});return;}   // goodbye loops while you drift
   if(audio.shuffle)playTrack((Math.random()*TRACKS.length)|0,true);else playTrack(audio.pick,true);}
 musicEl.addEventListener('ended',nextTrack);
-function startMusic(){if(!musicEl.src)playTrack(curTrack);else if(audio.on)musicEl.play().catch(()=>{});}
+function startMusic(){if(!musicEl.src)playTrack(curTrack);else if(audio.on)musicEl.play().catch(()=>{});
+  typeof ensureAudioCtx==='function'&&ensureAudioCtx();}   // F1: the SAME first-gesture path also wakes the SFX AudioContext (03z)
 // DRIFTING has its own song: "goodbye" plays the whole time you let the shell fly you.
 function setDrift(on){if(on===driftingNow)return;driftingNow=on;
   if(on){if(audio.on)playTrack(TRACKS.indexOf('goodbye'),true);}
@@ -1870,8 +2028,8 @@ function paintSettings(){
     box.appendChild(d);});
   const g=G();   // the controls reference matches your input — the plugged-in pad, or the keyboard
   document.getElementById('setControls').innerHTML = pad.active
-    ? 'L-stick fly / walk &middot; R-stick look &middot; <b>R3</b> recenter &middot; <b>'+g.lb+'</b>/<b>'+g.rb+'</b> roll &middot; <b>'+g.rt+'</b> burn &middot; <b>'+g.lt+'</b> brake<br><b>'+g.a+'</b> land / jump / lift &middot; <b>'+g.x+'</b> interact &middot; <b>'+g.y+'</b> walk your rock &middot; d-pad &larr; chart &middot; &rarr; beacon &middot; <b>'+g.start+'</b> menu'
-    : '<b>WASD</b> / arrows fly / walk &middot; <b>Q/E</b> pitch &middot; <b>Z/X</b> roll &middot; <b>SPACE</b> land / jump / lift &middot; <b>F</b> interact<br><b>Y</b> walk your rock &middot; <b>M</b> chart &middot; <b>G</b> beacon &middot; <b>[ ]</b> throttle &middot; <b>R</b> recenter &middot; left-drag steer &middot; right-drag look';
+    ? 'L-stick fly / walk / aim (menus, globe) &middot; R-stick look &middot; <b>R3</b> recenter &middot; <b>'+g.lb+'</b>/<b>'+g.rb+'</b> roll (space) &middot; <b>'+g.rt+'</b> burn &middot; <b>'+g.lt+'</b> brake<br><b>'+g.a+'</b> land / jump / lift / menu-select &middot; <b>'+g.x+'</b> interact &middot; <b>'+g.y+'</b> walk your rock &middot; <b>'+g.b+'</b> back out &middot; d-pad &larr; chart &middot; &rarr; beacon &middot; <b>'+g.rb+'</b> grapple (on foot) &middot; <b>'+g.start+'</b> menu<br>every panel — settings, forge, log cards, pickers — is d-pad + '+g.a+'/'+g.b+' navigable'
+    : '<b>WASD</b> / arrows fly / walk &middot; <b>Q/E</b> pitch &middot; <b>Z/X</b> roll &middot; <b>SPACE</b> land / jump / lift &middot; <b>F</b> interact<br><b>Y</b> walk your rock &middot; <b>M</b> chart &middot; <b>G</b> beacon &middot; <b>[ ]</b> throttle &middot; <b>R</b> recenter &middot; left-drag steer &middot; right-drag look<br><b>click the canvas</b> on foot to lock the mouse for look &middot; <b>ESC</b> releases it &middot; arrows + Enter/Escape navigate any open panel';
 }
 let menuScreen='main';const _mbody=setEl.querySelector('.body');   // panels get re-parented into the menu once they exist (below)
 function showMenuScreen(s){menuScreen=s;
@@ -1883,7 +2041,7 @@ function showMenuScreen(s){menuScreen=s;
   document.getElementById('setClose').textContent=s==='main'?'[ ESC ]':'‹ BACK';
   if(s==='shell')paintPanel();else if(s!=='main')paintFx();
 }
-function openSettings(){setEl.style.display='flex';showMenuScreen('main');paintSettings();}
+function openSettings(){if(document.exitPointerLock)document.exitPointerLock();setEl.style.display='flex';showMenuScreen('main');paintSettings();}
 function closeSettings(){setEl.style.display='none';showMenuScreen('main');}
 function menuBack(){menuScreen==='main'?closeSettings():showMenuScreen('main');}   // ESC / BACK / B
 document.getElementById('gearBtn').addEventListener('click',()=>togglePause());   // MENU → step into the cabin
@@ -1904,13 +2062,340 @@ setEl.addEventListener('click',e=>{
 document.getElementById('setQuit').addEventListener('click',()=>{
   saveSlot();SLOT=null;closeSettings();renderStart();paintRes();
   document.getElementById('start').style.display='flex';});
-addEventListener('keydown',e=>{if(e.key==='Escape'&&SLOT!=null){togglePause();}});   // ESC → cabin (or back a screen)
+addEventListener('keydown',e=>{if(e.key==='Escape'&&SLOT!=null){if(document.exitPointerLock)document.exitPointerLock();togglePause();}});   // ESC → cabin (or back a screen); also releases M2's pointer lock defensively (browsers already do this on Escape)
 const trail=[];let trailT=0;
 const STARWORDS=["Veil","Ember","Halcyon","Tessera","Sable","Wren","Cairn","Hollow","Cinder","Lure","Quill","Verge","Sere","Mourn","Cradle","Anvil","Rill","Fathom","Glint","Nadir","Vesper","Murmur","Pyre","Marrow","Loom","Drift","Knell","Brume"];
 function starName(vi){const r=mulberry32((Math.imul(vi,2654435761)^GSEED)>>>0);return STARWORDS[(r()*STARWORDS.length)|0]+'-'+(1+((r()*98)|0));}
 const ROM=['I','II','III','IV','V','VI','VII','VIII','IX'];
 const worldName=(vi,pi)=>starName(vi)+' '+(ROM[pi]||pi+1);
+// ─── M1(2) — FOCUS MANAGER: a generic d-pad/arrow-navigable focus ring for every click-driven DOM
+// panel, so a Steam Deck player with no keyboard can reach the forge, the systems console, the slots/
+// archive on the title screen, a log card, the beacon/craft pickers, and the trade window. Selects
+// actionable elements by a generic selector list — it never reaches into another lane's render code.
+// Keyboard arrows + Enter/Escape drive the exact same manager, so KB+M users get it free; the gamepad
+// wiring lives in 06a's pollGamepad (d-pad move, A activate, B back — beacon/craft pickers keep their
+// own already-working bespoke list nav for A/d-pad there, but this still covers them for keyboard and
+// for anything past their main list, like the REFINE tab's mouse-only upgrade rows).
+const FOCUS_PANELS=[
+  {sel:'#settings',cond:()=>setEl.style.display==='flex'},
+  {sel:'#forge',cond:()=>document.getElementById('forge').style.display==='block'},
+  {sel:'#start',cond:()=>SLOT==null&&document.getElementById('start').style.display!=='none'},
+  {sel:'#logCard',cond:()=>document.getElementById('logCard').style.display==='block'},
+  {sel:'#beaconPicker',cond:()=>document.getElementById('beaconPicker').style.display==='block'},
+  {sel:'#craftPicker',cond:()=>document.getElementById('craftPicker').style.display==='block'},
+  {sel:'#tradeP',cond:()=>{const t=document.getElementById('tradeP');return !!t&&t.style.display==='block';}}
+];
+const FOCUS_ITEM_SEL='button:not(:disabled),.btn,.mline,.trk,.slot,.afork,.bprow:not(.bpoff),.bptab,.ar,.far,.quit,.dev,.flaunch,input,[data-nav]';
+let focusPanelSel=null, focusIdx=-1, focusEls=[];
+function focusActivePanel(){for(const p of FOCUS_PANELS)if(p.cond())return p;return null;}
+function focusCollect(sel){
+  const root=document.querySelector(sel);if(!root)return [];
+  return [...root.querySelectorAll(FOCUS_ITEM_SEL)].filter(el=>{
+    const cs=getComputedStyle(el);if(cs.display==='none'||cs.visibility==='hidden')return false;
+    const r=el.getBoundingClientRect();return r.width>0&&r.height>0;});
+}
+function focusRingEl(){let r=document.getElementById('focusRing');
+  if(!r){r=document.createElement('div');r.id='focusRing';document.body.appendChild(r);}return r;}
+function clearFocusRing(){const r=document.getElementById('focusRing');if(r)r.style.display='none';
+  focusIdx=-1;focusEls=[];focusPanelSel=null;}
+function paintFocusRing(){
+  const r=focusRingEl();
+  if(focusIdx<0||!focusEls[focusIdx]){r.style.display='none';return;}
+  const rc=focusEls[focusIdx].getBoundingClientRect();
+  r.style.display='block';r.style.left=(rc.left-3)+'px';r.style.top=(rc.top-3)+'px';
+  r.style.width=(rc.width+6)+'px';r.style.height=(rc.height+6)+'px';
+}
+function focusMoveDir(dir){
+  const p=focusActivePanel();
+  if(!p){clearFocusRing();return;}
+  if(focusPanelSel!==p.sel){focusPanelSel=p.sel;focusEls=focusCollect(p.sel);focusIdx=focusEls.length?0:-1;paintFocusRing();return;}
+  focusEls=focusCollect(p.sel);   // re-collect every move — these panels repaint their innerHTML often
+  if(!focusEls.length){focusIdx=-1;paintFocusRing();return;}
+  if(focusIdx<0||focusIdx>=focusEls.length)focusIdx=0;
+  const cur=focusEls[focusIdx].getBoundingClientRect();
+  let best=-1,bestScore=1e12;
+  for(let i=0;i<focusEls.length;i++){if(i===focusIdx)continue;
+    const r=focusEls[i].getBoundingClientRect();
+    const dx=(r.left+r.width/2)-(cur.left+cur.width/2), dy=(r.top+r.height/2)-(cur.top+cur.height/2);
+    let ok=false,primary=0,ortho=0;
+    if(dir==='down'){ok=dy>4;primary=dy;ortho=Math.abs(dx);}
+    else if(dir==='up'){ok=dy<-4;primary=-dy;ortho=Math.abs(dx);}
+    else if(dir==='right'){ok=dx>4;primary=dx;ortho=Math.abs(dy);}
+    else if(dir==='left'){ok=dx<-4;primary=-dx;ortho=Math.abs(dy);}
+    if(!ok)continue;
+    const score=primary+ortho*2.2;
+    if(score<bestScore){bestScore=score;best=i;}}
+  if(best<0){   // nothing that way — most of these panels are single-column, so wrap top/bottom
+    if(dir==='down')best=(focusIdx+1)%focusEls.length;
+    else if(dir==='up')best=(focusIdx-1+focusEls.length)%focusEls.length;}
+  if(best>=0){focusIdx=best;paintFocusRing();}
+}
+function focusActivate(){
+  const p=focusActivePanel();if(!p)return false;
+  focusEls=focusCollect(p.sel);
+  if(focusIdx<0||!focusEls[focusIdx])return false;
+  focusEls[focusIdx].dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+  return true;
+}
+function focusBack(){
+  if(setEl.style.display==='flex'){menuBack();return true;}
+  const lc=document.getElementById('logCard');if(lc.style.display==='block'){lc.style.display='none';return true;}
+  if(document.getElementById('beaconPicker').style.display==='block'){closeBeaconPicker();return true;}
+  if(document.getElementById('craftPicker').style.display==='block'){closeCraftPicker();return true;}
+  const trade=document.getElementById('tradeP');
+  if(trade&&trade.style.display==='block'){const tx=document.getElementById('tX');if(tx)tx.click();else trade.style.display='none';return true;}
+  return false;
+}
+addEventListener('keydown',e=>{
+  // handoff (Lane C) — a focused text field (the forge's name input, the rock-naming #rockNameInput
+  // inside #logCard) owns its own arrow/Enter keys; the manager must never steal them mid-typing.
+  const ae=document.activeElement;
+  if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'))return;
+  const p=focusActivePanel();if(!p)return;
+  const k=e.key;
+  if(k==='ArrowUp'||k==='ArrowDown'||k==='ArrowLeft'||k==='ArrowRight'){e.preventDefault();
+    focusMoveDir(k==='ArrowUp'?'up':k==='ArrowDown'?'down':k==='ArrowLeft'?'left':'right');}
+  else if(k==='Enter'){e.preventDefault();focusActivate();}
+  else if(k==='Escape'&&setEl.style.display!=='flex'){if(focusBack())e.preventDefault();}   // settings' own Escape→togglePause (above) already backs it out
+});
+// re-paint the ring on scroll/resize (the settings panel scrolls internally) so it never drifts off its target
+addEventListener('scroll',()=>{if(focusIdx>=0)paintFocusRing();},true);
+addEventListener('resize',()=>{if(focusIdx>=0)paintFocusRing();});
 
+// C4(c) — "copy diagnostics": puts window.__watchdog (the movement-watchdog ring buffer, 13c's frame())
+// on the clipboard as JSON, so a stuck-player report carries its own state snapshot. The SYSTEM section's
+// markup lives in the head-file HTML I can only edit CSS in, so the row is injected here at load time —
+// the same pattern 06b already uses for the mouse-sensitivity row.
+{const note=setEl.querySelector('.note');
+  if(note)note.insertAdjacentHTML('beforebegin','<div class="quit" id="setDiag" style="color:#8B94A6;border-color:#343B4A">⎘ copy diagnostics</div>');}
+setEl.addEventListener('click',e=>{
+  if((e.target.closest('.mline,.quit')||e.target).id!=='setDiag')return;
+  const data=JSON.stringify(window.__watchdog||[],null,2);
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(data).then(()=>toast('diagnostics copied · '+(window.__watchdog||[]).length+' entries',2))
+      .catch(()=>toast('could not copy — clipboard blocked',2));
+  else toast('clipboard unavailable',2);
+});
+
+// ─── F1 — THE SFX LAYER. No asset files: one AudioContext (lazy, woken on the same first-gesture
+// path 03d's startMusic already uses), a master gain, an SFX bus, and ~21 procedural voices built
+// from oscillators + filtered noise + short envelopes. Every voice stays in the game's own register —
+// soft, chunky, lo-fi — never a harsh full-scale square wave. `sfx(name,opts)` no-ops on an unknown
+// name or a dead AudioContext; every call site elsewhere in the game is the guarded
+// `typeof sfx==='function'&&sfx('name')` the README's cross-lane contract already uses, so this
+// chunk can land, build, and be QA'd independently of whether the callers have landed yet. ───
+let actx=null, sfxMaster=null, sfxBus=null;
+function ensureAudioCtx(){
+  if(actx)return actx;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+    actx=new AC();
+    sfxMaster=actx.createGain();sfxMaster.gain.value=1;sfxMaster.connect(actx.destination);
+    sfxBus=actx.createGain();sfxBus.gain.value=(typeof audio!=='undefined'&&audio.sfxVol!=null)?audio.sfxVol:0.7;
+    sfxBus.connect(sfxMaster);
+  }catch{actx=null;sfxMaster=null;sfxBus=null;}
+  return actx;
+}
+
+// ─── DUCK — whenever a voice plays, the MUSIC element (03d owns its steady-state volume, audio.vol)
+// dips ~30% for ~250ms then eases back. Self-driven with setTimeout (not rAF/the main frame loop,
+// which this chunk doesn't own, and which the harness note says can go quiet under document.hidden;
+// setTimeout still ticks, just coarser) — so it works standing alone. Always relaxes back to exactly
+// audio.vol, so anything else that sets musicEl.volume (toggling music, the volume arrows) still wins
+// the instant the duck window ends. ───
+let duckT=0, duckTicking=false, duckLast=0;
+const DUCK_DUR=0.25, DUCK_AMT=0.3;
+function duckStep(){
+  const now=(typeof performance!=='undefined'?performance.now():Date.now())/1000;
+  const dt=duckLast?Math.min(0.12,now-duckLast):0.03;duckLast=now;
+  duckT=Math.max(0,duckT-dt);
+  try{if(typeof musicEl!=='undefined'&&musicEl){
+    const mul=1-DUCK_AMT*(duckT/DUCK_DUR);
+    musicEl.volume=Math.max(0,Math.min(1,(typeof audio!=='undefined'?audio.vol:0.55)*mul));}}catch{}
+  if(duckT>0)setTimeout(duckStep,30);else duckTicking=false;
+}
+function duckMusic(){duckT=DUCK_DUR;duckLast=0;if(!duckTicking){duckTicking=true;duckStep();}}
+
+// ─── VOICE BUILDING BLOCKS ───
+let _noiseCache={};
+function _noiseBuffer(ac,dur){
+  const key=Math.round(dur*1000);if(_noiseCache[key])return _noiseCache[key];
+  const n=Math.max(1,(ac.sampleRate*dur)|0),buf=ac.createBuffer(1,n,ac.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  return _noiseCache[key]=buf;
+}
+function _noise(ac,dur,type,freq,q){
+  const src=ac.createBufferSource();src.buffer=_noiseBuffer(ac,dur);
+  const f=ac.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq||1200;if(q!=null)f.Q.value=q;
+  src.connect(f);return{src,out:f};
+}
+function _osc(ac,type,freq){const o=ac.createOscillator();o.type=type;o.frequency.setValueAtTime(freq,ac.currentTime);return o;}
+// attack → decay-to-a-third → release, all in one gain node, feeding the bus
+function _env(ac,bus,t0,peak,a,d,r){
+  const g=ac.createGain();g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(peak,t0+a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001,peak*0.35),t0+a+d);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+a+d+r);
+  g.connect(bus);return g;
+}
+function _stopAt(node,t){try{node.start(node._t0||undefined);}catch{}try{node.stop(t);}catch{}}
+
+// ─── the voices — a table so `sfx()` itself stays a two-liner ───
+const SFX_VOICES={
+  thud_soft(ac,bus,t){
+    const o=_osc(ac,'sine',110);o.frequency.exponentialRampToValueAtTime(58,t+0.12);
+    const eg=_env(ac,bus,t,0.5,0.004,0.08,0.09);o.connect(eg);o.start(t);o.stop(t+0.22);
+    const {src,out}=_noise(ac,0.14,'lowpass',450,0.6),ng=_env(ac,bus,t,0.22,0.002,0.05,0.06);
+    out.connect(ng);src.start(t);src.stop(t+0.15);
+  },
+  thud_hard(ac,bus,t){
+    const o=_osc(ac,'sine',95);o.frequency.exponentialRampToValueAtTime(42,t+0.16);
+    const eg=_env(ac,bus,t,0.85,0.003,0.12,0.14);o.connect(eg);o.start(t);o.stop(t+0.3);
+    const {src,out}=_noise(ac,0.2,'lowpass',700,0.8),ng=_env(ac,bus,t,0.55,0.002,0.08,0.09);
+    out.connect(ng);src.start(t);src.stop(t+0.2);
+  },
+  bounce(ac,bus,t){
+    const o=_osc(ac,'triangle',190);o.frequency.setValueAtTime(190,t);
+    o.frequency.linearRampToValueAtTime(260,t+0.07);o.frequency.exponentialRampToValueAtTime(90,t+0.34);
+    const eg=_env(ac,bus,t,0.4,0.01,0.16,0.18);o.connect(eg);o.start(t);o.stop(t+0.4);
+    const {src,out}=_noise(ac,0.1,'lowpass',600,0.6),ng=_env(ac,bus,t,0.3,0.002,0.04,0.05);
+    out.connect(ng);src.start(t);src.stop(t+0.1);
+  },
+  engine(ac,bus,t){
+    const dur=1.2;
+    const o=_osc(ac,'sawtooth',40);o.frequency.exponentialRampToValueAtTime(140,t+dur*0.85);
+    const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(220,t);
+    lp.frequency.linearRampToValueAtTime(900,t+dur*0.9);
+    const eg=_env(ac,bus,t,0.32,0.25,dur*0.5,dur*0.35);
+    o.connect(lp);lp.connect(eg);o.start(t);o.stop(t+dur+0.1);
+    const {src,out}=_noise(ac,dur,'lowpass',300,0.5),ng=_env(ac,bus,t,0.18,0.3,dur*0.4,dur*0.3);
+    out.connect(ng);src.start(t);src.stop(t+dur);
+  },
+  board_on(ac,bus,t){
+    const o=_osc(ac,'triangle',280);o.frequency.exponentialRampToValueAtTime(660,t+0.14);
+    const eg=_env(ac,bus,t,0.32,0.01,0.08,0.09);o.connect(eg);o.start(t);o.stop(t+0.22);
+  },
+  board_off(ac,bus,t){
+    const o=_osc(ac,'triangle',540);o.frequency.exponentialRampToValueAtTime(220,t+0.14);
+    const eg=_env(ac,bus,t,0.28,0.01,0.08,0.09);o.connect(eg);o.start(t);o.stop(t+0.22);
+  },
+  trick(ac,bus,t){
+    [ [520,0],[700,0.07] ].forEach(([f,dt])=>{
+      const o=_osc(ac,'triangle',f);const eg=_env(ac,bus,t+dt,0.3,0.005,0.07,0.08);
+      const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2400;
+      o.connect(lp);lp.connect(eg);o.start(t+dt);o.stop(t+dt+0.16);});
+  },
+  grapple_throw(ac,bus,t){
+    const {src,out}=_noise(ac,0.22,'bandpass',700,1.1);
+    out.frequency.linearRampToValueAtTime(1800,t+0.2);
+    const eg=_env(ac,bus,t,0.3,0.01,0.1,0.1);out.connect(eg);src.start(t);src.stop(t+0.22);
+  },
+  grapple_hit(ac,bus,t){
+    const {src,out}=_noise(ac,0.1,'bandpass',380,2.2),eg=_env(ac,bus,t,0.4,0.002,0.05,0.06);
+    out.connect(eg);src.start(t);src.stop(t+0.1);
+    const o=_osc(ac,'sine',170);const eg2=_env(ac,bus,t,0.3,0.002,0.05,0.05);o.connect(eg2);o.start(t);o.stop(t+0.12);
+  },
+  grapple_snap(ac,bus,t){
+    const {src,out}=_noise(ac,0.08,'highpass',1800,1.4),eg=_env(ac,bus,t,0.35,0.001,0.02,0.05);
+    out.connect(eg);src.start(t);src.stop(t+0.08);
+    const o=_osc(ac,'sine',420);o.frequency.exponentialRampToValueAtTime(140,t+0.12);
+    const eg2=_env(ac,bus,t,0.22,0.001,0.05,0.07);o.connect(eg2);o.start(t);o.stop(t+0.14);
+  },
+  build(ac,bus,t){
+    const {src,out}=_noise(ac,0.1,'lowpass',500,0.6),ng=_env(ac,bus,t,0.32,0.002,0.05,0.06);
+    out.connect(ng);src.start(t);src.stop(t+0.1);
+    [ [440,0.03],[554,0.1] ].forEach(([f,dt])=>{
+      const o=_osc(ac,'triangle',f),eg=_env(ac,bus,t+dt,0.22,0.01,0.1,0.14);o.connect(eg);o.start(t+dt);o.stop(t+dt+0.28);});
+  },
+  tier(ac,bus,t){
+    [440,554,659].forEach((f,i)=>{
+      const o=_osc(ac,'triangle',f),eg=_env(ac,bus,t+i*0.11,0.26,0.008,0.1,0.16);o.connect(eg);o.start(t+i*0.11);o.stop(t+i*0.11+0.3);});
+  },
+  letter(ac,bus,t){
+    const {src,out}=_noise(ac,0.42,'lowpass',900,0.5),ng=_env(ac,bus,t,0.2,0.12,0.18,0.16);
+    out.connect(ng);src.start(t);src.stop(t+0.42);
+    const o=_osc(ac,'triangle',880),eg=_env(ac,bus,t+0.1,0.14,0.05,0.2,0.3);o.connect(eg);o.start(t+0.1);o.stop(t+0.65);
+  },
+  contact(ac,bus,t){
+    [ [500,0],[650,0.12] ].forEach(([f,dt])=>{
+      const o=_osc(ac,'triangle',f);const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2000;
+      const eg=_env(ac,bus,t+dt,0.24,0.01,0.09,0.12);o.connect(lp);lp.connect(eg);o.start(t+dt);o.stop(t+dt+0.22);});
+  },
+  homestead(ac,bus,t){
+    const o1=_osc(ac,'sine',220),o2=_osc(ac,'sine',221);
+    const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;
+    const eg=_env(ac,bus,t,0.34,0.02,0.7,0.9);o1.connect(lp);o2.connect(lp);lp.connect(eg);
+    o1.start(t);o1.stop(t+1.6);o2.start(t);o2.stop(t+1.6);
+  },
+  day(ac,bus,t){
+    [660,990].forEach((f,i)=>{
+      const o=_osc(ac,'triangle',f),eg=_env(ac,bus,t,i?0.1:0.22,0.03,0.14,0.2);o.connect(eg);o.start(t);o.stop(t+0.4);});
+  },
+  night(ac,bus,t){
+    const o=_osc(ac,'sine',300);o.frequency.exponentialRampToValueAtTime(150,t+0.5);
+    const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=500;
+    const eg=_env(ac,bus,t,0.2,0.05,0.3,0.35);o.connect(lp);lp.connect(eg);o.start(t);o.stop(t+0.7);
+  },
+  pickup(ac,bus,t){
+    const o=_osc(ac,'sine',320);o.frequency.exponentialRampToValueAtTime(560,t+0.08);
+    const eg=_env(ac,bus,t,0.3,0.004,0.06,0.07);o.connect(eg);o.start(t);o.stop(t+0.14);
+  },
+  ui_move(ac,bus,t){
+    const {src,out}=_noise(ac,0.02,'highpass',2200,0.8),eg=_env(ac,bus,t,0.14,0.001,0.01,0.02);
+    out.connect(eg);src.start(t);src.stop(t+0.02);
+  },
+  ui_confirm(ac,bus,t){
+    const o=_osc(ac,'triangle',500);o.frequency.exponentialRampToValueAtTime(700,t+0.08);
+    const eg=_env(ac,bus,t,0.24,0.004,0.05,0.06);o.connect(eg);o.start(t);o.stop(t+0.14);
+  },
+  ui_back(ac,bus,t){
+    const o=_osc(ac,'triangle',500);o.frequency.exponentialRampToValueAtTime(350,t+0.08);
+    const eg=_env(ac,bus,t,0.22,0.004,0.05,0.06);o.connect(eg);o.start(t);o.stop(t+0.14);
+  },
+};
+// the public entry point — every caller elsewhere in the game guards with `typeof sfx==='function'`,
+// and this itself never throws: an unknown name, a dead/blocked AudioContext, or sfx muted in
+// settings are all silent no-ops.
+function sfx(name,opts){
+  try{
+    if(typeof audio!=='undefined'&&audio.sfxOn===false)return;
+    const V=SFX_VOICES[name];if(!V)return;
+    const ac=ensureAudioCtx();if(!ac)return;
+    if(ac.state==='suspended')ac.resume().catch(()=>{});
+    sfxBus.gain.value=(typeof audio!=='undefined'&&audio.sfxVol!=null?audio.sfxVol:0.7)*((opts&&opts.vol!=null)?opts.vol:1);
+    V(ac,sfxBus,ac.currentTime);
+    duckMusic();
+  }catch{}
+}
+
+// ─── the settings row — injected at runtime into the existing AUDIO section of #settings (owned by
+// 00-head.html.part / 03e-settings.js, neither of which this lane touches) so a toggle + a volume
+// bar exist without editing a chunk this lane doesn't own. Mirrors the look of the music row above it. ───
+function paintSfxRow(){
+  const t=document.getElementById('setSfxTog');if(!t)return;
+  t.textContent=(typeof audio!=='undefined'&&audio.sfxOn===false)?'○ off':'◉ on';
+  const vEl=document.getElementById('setSfxVolBar');if(!vEl)return;
+  const v=(typeof audio!=='undefined'&&audio.sfxVol!=null)?audio.sfxVol:0.7;
+  vEl.innerHTML='<span class="ar" id="sfxVolDn">‹</span><span class="bar"><span style="width:'+(v*100)+'%"></span></span><span class="ar" id="sfxVolUp">›</span>';
+  const dn=document.getElementById('sfxVolDn'),up=document.getElementById('sfxVolUp');
+  if(dn)dn.addEventListener('click',e=>{e.stopPropagation();audio.sfxVol=Math.max(0,+((audio.sfxVol==null?0.7:audio.sfxVol)-0.1).toFixed(2));if(sfxBus)sfxBus.gain.value=audio.sfxVol;typeof saveAudio==='function'&&saveAudio();paintSfxRow();});
+  if(up)up.addEventListener('click',e=>{e.stopPropagation();audio.sfxVol=Math.min(1,+((audio.sfxVol==null?0.7:audio.sfxVol)+0.1).toFixed(2));if(sfxBus)sfxBus.gain.value=audio.sfxVol;typeof saveAudio==='function'&&saveAudio();paintSfxRow();sfx('ui_move');});
+}
+function injectSfxRow(){
+  const tracksEl=document.getElementById('setTracks');
+  if(!tracksEl||document.getElementById('setSfxRow'))return;
+  const wrap=document.createElement('div');wrap.id='setSfxRow';
+  wrap.innerHTML='<div class="line"><span>sound fx</span><span class="val" id="setSfxTog"></span></div>'
+    +'<div class="line"><span>sfx volume</span><span class="val" id="setSfxVolBar"></span></div>';
+  tracksEl.insertAdjacentElement('afterend',wrap);
+  document.getElementById('setSfxTog').addEventListener('click',e=>{e.stopPropagation();
+    audio.sfxOn=(audio.sfxOn===false);typeof saveAudio==='function'&&saveAudio();paintSfxRow();
+    if(audio.sfxOn!==false)sfx('ui_confirm');});
+  paintSfxRow();
+}
+// DOM for #settings already exists by the time this script runs (00-head.html.part is the body,
+// parsed before the trailing <script> block executes) — same assumption 03d/03e already make.
+try{injectSfxRow();}catch{}
 // ─── modes ───
 let mode='space';
 let surf=null;
@@ -1928,6 +2413,7 @@ let wipe=null;
 // latched are plain world-space (planet-local) vectors — frameWalk's sphere-walk sits out until the
 // rope lets go, then bot._alt/bot.jv/bot.v/fr.d/fr.f are rebuilt from the last real velocity. ───
 let grap=null;
+let grapReticle=null;   // M4: last frame's "what's under the hook" (or null) — the status line (12b) reads this for the pre-throw readout
 const GRAP_MAX=28, GRAP_STEP=0.5, GRAP_FLORA_R=1.2, GRAP_BUILD_R=1.5;
 const GRAP_FLY_SPD=40, GRAP_SPRING=26, GRAP_GRAV=14, GRAP_TERMINAL=8;
 const GRAP_TREE_KINDS=new Set(['tree','evergreen','fruittree','willow','palm','megatree','baobab','sequoia','spire','crystal','prism']);
@@ -1945,11 +2431,11 @@ function grapTarget(){
   const R=surf.R;
   const cands=[];
   if(surf.flora)for(const f of surf.flora){
-    if(!(f.h>2)||!GRAP_TREE_KINDS.has(f.kind))continue;
+    if(!(f.h>2)||!GRAP_TREE_KINDS.has(f.kind)||f.snapped)continue;   // M4: a flora anchor that's already been pulled once is out until the surf rebuilds (next landing)
     const gh=sphHv(f.d),base=[f.d[0]*(R+gh),f.d[1]*(R+gh),f.d[2]*(R+gh)];
     const dx=base[0]-camX,dy=base[1]-camY,dz=base[2]-camZ,rej=GRAP_MAX+f.h+2;
     if(dx*dx+dy*dy+dz*dz>rej*rej)continue;
-    cands.push([base,[base[0]+f.d[0]*f.h,base[1]+f.d[1]*f.h,base[2]+f.d[2]*f.h]]);
+    cands.push([base,[base[0]+f.d[0]*f.h,base[1]+f.d[1]*f.h,base[2]+f.d[2]*f.h],f]);
   }
   for(let t=GRAP_STEP;t<=GRAP_MAX;t+=GRAP_STEP){
     const px=camX+cFx*t,py=camY+cFy*t,pz=camZ+cFz*t;
@@ -1959,7 +2445,7 @@ function grapTarget(){
     for(const c of cands){
       const cp=grapClosestOnSeg(px,py,pz,c[0],c[1]);
       const ddx=px-cp[0],ddy=py-cp[1],ddz=pz-cp[2];
-      if(ddx*ddx+ddy*ddy+ddz*ddz<=GRAP_FLORA_R*GRAP_FLORA_R)return{point:cp,kind:'flora'};
+      if(ddx*ddx+ddy*ddy+ddz*ddz<=GRAP_FLORA_R*GRAP_FLORA_R)return{point:cp,kind:'flora',flora:c[2]};
     }
     if(surf.builds)for(const b of surf.builds){
       const bg=sphHv(b.d),bp=[b.d[0]*(R+bg+1),b.d[1]*(R+bg+1),b.d[2]*(R+bg+1)];
@@ -1980,21 +2466,24 @@ function fireGrapple(){
   const hit=grapTarget();
   if(!hit){toast('nothing there to grab',1);return;}
   const hand=grapHandPos();
-  grap={state:'fly',t:0,anchor:hit.point,kind:hit.kind,firePos:hand,
+  grap={state:'fly',t:0,anchor:hit.point,kind:hit.kind,floraRef:hit.flora||null,firePos:hand,
     fireDist:Math.hypot(hit.point[0]-hand[0],hit.point[1]-hand[1],hit.point[2]-hand[2])||0.5};
+  typeof sfx==='function'&&sfx('grapple_throw');
 }
 // J re-pressed, released, or the physics itself decides you're done — landed=true only on a real touchdown
 // (converts to a stopped, grounded bot); a mid-air/mid-flight release just drops the cable and lets whatever
 // velocity you had carry, which is the entire point of the thing.
 function releaseGrapple(landed){
   if(!grap)return;
-  if(grap.state!=='latched'){grap=null;return;}          // still travelling — nothing latched, nothing to carry
+  if(grap.state!=='latched'){grap=null;return;}          // still travelling — nothing latched, nothing to carry (and no anchor was ever really pulled)
+  const wasFlora=grap.kind==='flora'&&grap.floraRef;      // M4: flora anchors SNAP after one real pull — stone/build hold forever
   const fr=surf.botF,dPos=fr.d,vel=grap.vel;
   const radialV=vel[0]*dPos[0]+vel[1]*dPos[1]+vel[2]*dPos[2];
   bot.jv=landed?0:radialV;
   bot.grounded=!!landed;
   if(landed){bot.sq=1.14;bot.jalt=0;}
   bot.coyote=landed?0.12:0;bot.jbuf=0;bot.jumpQ=false;
+  if(wasFlora){grap.floraRef.snapped=true;typeof sfx==='function'&&sfx('grapple_snap');typeof toast==='function'&&toast('the vine snaps',1.2);typeof achieve==='function'&&achieve('grapple_snap');}
   grap=null;
 }
 // per-frame grapple update: the hook's flight (a straight run at GRAP_FLY_SPD toward the anchor, rope
@@ -2016,6 +2505,7 @@ function updateGrapple(dt){
       grap.ropeLen0=Math.max(1,Math.hypot(toA[0],toA[1],toA[2]));
       grap.state='latched';grap.t=0;grap.liftedOff=false;
       shake(0.3);freeze(0.016);
+      typeof sfx==='function'&&sfx('grapple_hit');
       bot.grounded=false;
     }
     return;
@@ -2073,13 +2563,15 @@ function grapCell(wx,wy,wz,size,c){
 // once latched) plus the hook itself at its tip. Runs every frame while onFoot, both render paths.
 function drawGrapple(){
   if(!grap){
-    const hit=grapTarget();if(!hit)return;
+    const hit=grapTarget();grapReticle=hit;   // M4: the pre-throw readout (12b's status line) reads this
+    if(!hit)return;
     const p=hit.point,d=vnorm(p),[t1]=tanBasis(d),o=0.2;
     grapCell(p[0]+d[0]*o,p[1]+d[1]*o,p[2]+d[2]*o,0.16,C.amber);
     grapCell(p[0]+t1[0]*o,p[1]+t1[1]*o,p[2]+t1[2]*o,0.16,C.amber);
     grapCell(p[0]-t1[0]*o,p[1]-t1[1]*o,p[2]-t1[2]*o,0.16,C.amber);
     return;
   }
+  grapReticle=null;   // mid-throw/latched — the rope itself is the feedback now
   const hand=grapHandPos(),tip=grap.state==='fly'?grap.hook:grap.anchor;
   if(!tip)return;
   const dist=Math.max(0.05,Math.hypot(tip[0]-hand[0],tip[1]-hand[1],tip[2]-hand[2]));
@@ -2099,6 +2591,19 @@ function drawGrapple(){
 let shakeAmt=0, hitStop=0;
 function shake(a){shakeAmt=Math.min(2.2,Math.max(shakeAmt,a));}   // strongest wins, capped
 function freeze(t){hitStop=Math.max(hitStop,t);}                  // a beat of stopped time on impact
+// F2 — TOUCHDOWN CAMERA DIP: a short drop in the camera's own headAlt offset, strongest wins,
+// eased back to zero over DIP_DUR. amt is a 0..~1.4 impact-speed fraction (the caller does the
+// scaling) — kept as a plain decaying value (not an AudioParam-style ramp) since the caller
+// (frameSurface, 12b) applies it once per frame by subtracting camDipOffset(dt) from headAlt.
+let camDipAmt=0, camDipT=0;
+const CAMDIP_DUR=0.12;
+function camDip(amt){camDipAmt=Math.max(camDipAmt,Math.min(1.4,amt||0));camDipT=CAMDIP_DUR;}
+function camDipOffset(dt){
+  if(camDipT<=0){camDipAmt=0;return 0;}
+  camDipT=Math.max(0,camDipT-dt);
+  const k=camDipT/CAMDIP_DUR;                    // 1 → 0 over the window
+  return (0.15+camDipAmt*0.75)*k*k;               // world units subtracted from headAlt — eased, never abrupt
+}
 // shake offset in the camera plane, noise-based so it never repeats
 function shakeCam(){if(shakeAmt<=0.02)return;
   const a=shakeAmt*0.35, jx=(ihash(((T*137)|0))-0.5)*a, jy=(ihash(((T*211)|0)+99)-0.5)*a;
@@ -2351,6 +2856,31 @@ cv.addEventListener('touchmove',e=>{const ts=e.touches;if(ts.length===2){e.preve
 cv.addEventListener('touchend',e=>{for(const t of e.changedTouches)delete tp[t.identifier];},{passive:true});
 document.getElementById('thrust').addEventListener('pointerdown',e=>{thrusting=true;e.preventDefault();});
 addEventListener('pointerup',()=>{thrusting=false;});
+// ─── M2 — POINTER LOCK: click the canvas while on foot to lock the mouse; deltas drive camYaw/camPitch
+// directly, the same look free-look (right-drag) already turns — right-drag stays as the un-locked
+// fallback, untouched above. Sensitivity is fx.mouseSens (dial added in 06b, persisted with fx like
+// every other screen/grade knob). Escape releases (browsers do this on their own on Escape; 03e's
+// existing Escape handler also calls exitPointerLock defensively) and, as today, opens the cabin.
+function anyPanelOpen(){
+  return setEl.style.display==='flex'||document.getElementById('forge').style.display==='block'||
+    document.getElementById('logCard').style.display==='block'||
+    document.getElementById('beaconPicker').style.display==='block'||
+    document.getElementById('craftPicker').style.display==='block'||
+    (SLOT==null&&document.getElementById('start').style.display!=='none');
+}
+let mouseLocked=false;
+cv.addEventListener('click',()=>{
+  if(mouseLocked||mode!=='surface'||!onFoot||anyPanelOpen())return;
+  if(cv.requestPointerLock)cv.requestPointerLock();
+});
+document.addEventListener('pointerlockchange',()=>{mouseLocked=document.pointerLockElement===cv;});
+cv.addEventListener('mousemove',e=>{
+  if(!mouseLocked)return;
+  const sens=MOUSE_SENS_VALS[fx.mouseSens!=null?fx.mouseSens:2]||1;
+  camUnwind=false;
+  camYaw+=(e.movementX||0)*0.0022*sens;
+  camPitch=Math.max(-1.4,Math.min(1.4,camPitch+(e.movementY||0)*0.0018*sens*lookInvY()));
+});
 // ── keyboard + mouse is the whole control surface now. SPACE is the big physical action
 // (jump on foot · land from flight · lift off from a world). F interacts (exit/board/inspect).
 // Controllers can map straight onto this later: A=space, X=F, sticks=WASD+look. ──
@@ -2368,8 +2898,16 @@ function spaceAction(){
 function interact(){
   if(mode==='cabin'){if(cabinActive>=0)CABIN[cabinActive].act();return;}
   if(mode==='surface'){
+    if(inRockGlobe()){globeInspectAtCursor();return;}                      // M1(3) — X inspects whatever the cursor's on, on a pad or F on the keyboard
     if(gzShown>0.1&&!onFoot)return;                                        // holding orbit after a dock (finishDock) — F does nothing there; break orbit and walk the Cradle again for another go
     if(onFoot){if(homesteadAct())return;                                    // at YOUR homestead, F ends the run — it outranks a neighbor chat (the one irreversible act shouldn't lose to a townie standing too close)
+      // C4(b) — ALL build interactions outrank a townie chat: a resident standing near the Cradle/dock/
+      // Hold shouldn't eat the F meant for the building. homesteadAct is already hoisted above (it's the
+      // one build that ends the run, checked first on purpose); these three join it, still above
+      // nearSettler/nearResident/nearLetter below.
+      if(cradleBoardAct())return;
+      if(dockVisitorAct())return;
+      if(holdPropAct())return;
       const s=nearSettler();if(s){showSettler(s);return;}                   // talk to a fork who stayed
       const rz=nearResident();if(rz){showResident(rz);return;}              // SHIPTOWN: inspect a townie of your own village
       const lt=nearLetter();if(lt){showLetterCard(lt);return;}              // SHIPTOWN Run 2: read a departed townie's letter at their old door
@@ -2400,6 +2938,7 @@ function cradleBoardAct(){                                                  // F
   if(!nearCradleB())return false;
   if(!game.pendingOrbit){toast('no world below — chart a course first',2.5);return true;}
   if(wipe)return true;                                                     // already mid-transition
+  game.visits=game.visits||{};game.visits.cradle=(game.visits.cradle||0)+1;   // F5 — worn paths follow where you actually go
   toast('boarding the drop ship…',1.2);
   startWipe(W/2,H/2,INK,boardPendingWorld);
   return true;
@@ -2447,7 +2986,7 @@ function tryAutoDrop(){
 // no range but keeps the place in the Archive. Cost is the tension: you build to the black, or you remember.
 const BEACONS={
   relay:   {cost:8,  label:'RELAY',    reach:440, col:[76,183,198], desc:'safe refuel · a steady ring of range'},
-  lens:    {cost:18, label:'LENS',     reach:950, col:[230,169,59], desc:'a long reach — but only toward the core'},
+  lens:    {cost:18, label:'LENS',     reach:950, col:[230,169,59], desc:'a long reach toward the core · no refuel'},
   memorial:{cost:5,  label:'MEMORIAL', reach:100, col:[150,120,200],desc:'little range · keeps this place in the Archive'}};
 const BEACON_COST=8;   // legacy alias
 function beaconType(b){return (b&&b.t)||'relay';}                    // old saves stored `1` → a relay
@@ -2478,6 +3017,7 @@ function buildBeacon(type){
   chartDirty=true;
   burst(surf.shipF.d,sphHv(surf.shipF.d),24,4,shellSet()[3],0.9,7);shake(1);freeze(0.05);
   toast(spec.label+' RAISED · '+MATTER[mat].label+(type==='memorial'?' · this place is remembered':revealed?' · '+revealed+' worlds revealed':' · network extended · refueled'));
+  typeof storyBeat==='function'&&storyBeat('first_beacon');   // S1 — the question's first fragment, at the first light you raise
   paintRes();closeBeaconPicker();}
 function openBeaconPicker(){if(mode!=='surface'||!onFoot||!surf){return;}
   if(game.beacons[surf.vi]){toast('a beacon already stands here');return;}
@@ -2544,6 +3084,7 @@ function buildRecipe(key,dirOverride){
   saveSlot&&saveSlot();paintRes();
   if(surf&&surf.isRock){placeRockBuilds();if(onFoot&&surf.botF)rockCollide(surf.botF);}
   toast(S.label+' RAISED · '+(MATTER[mat]?MATTER[mat].label:'Iron')+'-fitted'+(here?(onFoot?' — right here':' — placed from orbit, waiting for you back on the ground'):' — the crew will raise it by the engine'),3.5);
+  if(typeof sfx==='function')sfx('build');
   renderCraftPicker();}
 // ═══ TOWN ERA Run 4 (docs/TOWN_ERA.md §5) — THE GLOBE BUILD VIEW. drawPlanetRaycast/shadeSurface/
 // drawGlobe already draw ANY world from orbit, ruled CPU-permanent (WEBGPU_PHASE3_SPACE.md §6). The
@@ -2551,13 +3092,17 @@ function buildRecipe(key,dirOverride){
 // that pointing — entry/exit, a screen→sphere cursor (the raycast's own math run in reverse), what's
 // under it, and placing a build there. No new renderer; a new way to aim the one that exists. ═══
 let gCurDir=null, gCurHit=null, gHeatOn=false, gPlaceKey=null;
+// M1(3) — left-stick cursor: gStickX/Y are a virtual screen-space cursor position (render-space pixels,
+// same frame globePickDir already expects — see updateGlobeCursor's conversion below), nudged by the
+// left stick each poll (06a) instead of tracking a real pointer. null until enterRockGlobe seeds it.
+let gStickX=null, gStickY=null;
 function inRockGlobe(){return mode==='surface'&&!!surf&&surf.isRock&&gzShown>0.1&&!onFoot;}
 // F at the chart table (holdPropAct) — "VIEW FROM ORBIT," open from landing 1, no unlock (dks ruling 5).
 function enterRockGlobe(){
   if(!surf||!surf.isRock||!onFoot)return false;
   surf._footBack=surf.botF?{d:surf.botF.d.slice(),f:surf.botF.f.slice(),r:surf.botF.r.slice()}:null;  // where you stood — exitRockGlobe puts you right back
   onFoot=false;gz=1;gzShown=1;gDir=null;gUp=null;surf._touched=false;
-  gCurDir=null;gCurHit=null;gPlaceKey=null;closeCraftPicker();
+  gCurDir=null;gCurHit=null;gPlaceKey=null;gStickX=W/2;gStickY=H/2;closeCraftPicker();
   paintChrome();toast('VIEW FROM ORBIT — your rock, whole. drag to spin · click a home to inspect · B to build · T for the heat overlay',4);
   return true;
 }
@@ -2566,9 +3111,12 @@ function enterRockGlobe(){
 function exitRockGlobe(){
   if(!surf||!surf.isRock)return false;
   if(surf._footBack)surf.botF=surf._footBack;
+  // C4(a) — if you break orbit before ever standing on the rock (surf.botF unset), frameSurface throws.
+  // Mirror the same disembark fallback footAct()/launchRock() already use elsewhere: seed from surf.shipF.
+  if(!surf.botF&&surf.shipF)surf.botF={d:surf.shipF.d.slice(),f:surf.shipF.f.slice(),r:surf.shipF.r.slice()};
   gz=0;gzShown=0;gDir=null;gUp=null;onFoot=true;surf._autoExit=false;surf._touched=true;
   bot.v=0;bot.yaw=0;bot._py=0;bot.face=0;bot.idle=0;bot.grounded=true;bot.jalt=0;bot.jv=0;bot.sq=1;bot.crouch=0;bot.jumpQ=false;
-  gCurDir=null;gCurHit=null;gPlaceKey=null;gHeatOn=false;closeCraftPicker();
+  gCurDir=null;gCurHit=null;gPlaceKey=null;gHeatOn=false;gStickX=null;gStickY=null;closeCraftPicker();
   setPix(onFootPix());paintChrome();
   toast('back on your feet',1.5);
   return true;
@@ -2646,10 +3194,23 @@ function updateGlobeCursor(cx,cy){
 function globeTap(cx,cy){
   if(!inRockGlobe())return;
   updateGlobeCursor(cx,cy);
+  globeStickAct();
+}
+// M1(3) — shared by the mouse click (globeTap, above) and the pad's A button (06a's pollGamepad):
+// PLACE if a recipe is armed from the build panel, else INSPECT whatever's under the cursor.
+function globeStickAct(){
+  if(!inRockGlobe())return;
   if(gPlaceKey){const key=gPlaceKey;gPlaceKey=null;
     if(!gCurDir){toast('point at your rock, not the black',2);return;}
     buildRecipe(key,gCurDir);return;}
   if(!gCurHit)return;
+  if(gCurHit.kind==='townie'){showResident(gCurHit.rz);return;}
+  if(gCurHit.kind==='build')toast(globeHitLabel(gCurHit),2);
+}
+// X — inspect-only (never places, even with a recipe armed): the pad's dedicated "look at this" button,
+// wired through interact() (05a) same as F does everywhere else on foot.
+function globeInspectAtCursor(){
+  if(!inRockGlobe()||!gCurHit)return;
   if(gCurHit.kind==='townie'){showResident(gCurHit.rz);return;}
   if(gCurHit.kind==='build')toast(globeHitLabel(gCurHit),2);
 }
@@ -2735,6 +3296,7 @@ function toggleBeaconPicker(){const el=document.getElementById('beaconPicker');
   (el&&el.style.display==='block')?closeBeaconPicker():openBeaconPicker();}
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;
   if(e.repeat||SLOT==null)return;
+  if(typeof textEntryOpen!=='undefined'&&textEntryOpen)return;   // the rock-namer (06c) owns the keyboard while its field is open
   if(k==='k'||(catMode&&k==='escape')){catMode=!catMode;setPix(catMode?2:catPix());return;}
   if(catMode)return;                                   // the atlas eats other keys while it's open
   if(k==='tab'&&mode==='cabin'){e.preventDefault();cabinFlip(1);return;}   // flip the viewscreen
@@ -2807,6 +3369,10 @@ const PADG={
   ps:  {a:'✕',b:'○',x:'□',y:'△',rb:'R1',lb:'L1',rt:'R2',lt:'L2',start:'☰',name:'PlayStation'},
   nin: {a:'B',b:'A',x:'Y',y:'X',rb:'R', lb:'L', rt:'ZR',lt:'ZL',start:'+',name:'Switch'}};
 const G=()=>PADG[padType]||PADG.xbox;
+// M1(4) — a reusable button-name → glyph lookup for the current pad (paintChrome, 13a, already builds
+// its hint text off G() directly; this is for any NEW pad hint text — the globe-view line below, and
+// anywhere else that names a button rather than interpolating G()'s own fields).
+function padGlyph(name){const g=G();return g[name]!=null?g[name]:name;}
 const padA=()=>pad.active?G().a:'SPACE';    // the big physical action (land / jump / lift)
 const padX=()=>pad.active?G().x:'F';        // interact (board / exit / inspect / speak)
 addEventListener('gamepadconnected',e=>{padId=(e.gamepad&&e.gamepad.id)||'';padType=detectPad(padId);
@@ -2838,13 +3404,41 @@ function pollGamepad(){
     const beaconOpen=document.getElementById('beaconPicker').style.display==='block';
     const craftOpen=document.getElementById('craftPicker').style.display==='block';
     const onRock=mode==='surface'&&onFoot&&surf&&surf.isRock;
-    if(edge(0)){if(craftOpen){if(craftTab==='raise')buildRecipe(RECIPE_ORDER[craftSel]);else refine(REFINE_ORDER[craftSel]);}else spaceAction();}   // A · build/refine the picked thing, else land / jump / lift
-    if(edge(2))interact();             // X · board / exit / inspect / speak
-    if(edge(3)){if(mode==='cabin')cabinFlip(1);else if(mode==='space')walkMyRock();else toggleMap();}   // Y · walk your rock (space) · flip viewscreen (cabin) · else chart
-    if(edge(1)){closeBeaconPicker();closeCraftPicker();if(setEl.style.display==='flex')menuBack();else if(mode==='cabin')exitCabin();}   // B · back out
+    // M1(2) — FOCUS MANAGER takes the d-pad + A/B whenever a managed panel is open, EXCEPT the beacon/
+    // craft pickers, which keep their own already-working bespoke list nav (craftSel + the branches
+    // below) — the focus manager still covers them for keyboard users (03e's own keydown listener).
+    const fp=typeof focusActivePanel==='function'?focusActivePanel():null;
+    if(fp&&!beaconOpen&&!craftOpen){
+      if(edge(12))focusMoveDir('up');if(edge(13))focusMoveDir('down');
+      if(edge(14))focusMoveDir('left');if(edge(15))focusMoveDir('right');
+      if(edge(0))focusActivate();
+      if(edge(1))focusBack();
+      padPrev=gp.buttons.map(b=>b.pressed);
+      return;
+    }
+    // M1(3) — GLOBE STICK CURSOR: the left stick nudges a virtual screen-space cursor across the sphere
+    // every poll while the rock-globe view is open; globePickDir/classifyGlobeHit (05c) do the same work
+    // updateGlobeCursor's mouse path already does, just fed this stick position instead of a live pointer.
+    if(inRockGlobe()){
+      gStickX=Math.max(0,Math.min(W,(gStickX==null?W/2:gStickX)+lx*W*0.016));
+      gStickY=Math.max(0,Math.min(H,(gStickY==null?H/2:gStickY)+ly*H*0.016));
+      gCurDir=globePickDir(gStickX,gStickY);gCurHit=gCurDir?classifyGlobeHit(gCurDir):null;
+    }
+    if(edge(0)){if(craftOpen){if(craftTab==='raise')buildRecipe(RECIPE_ORDER[craftSel]);else refine(REFINE_ORDER[craftSel]);}
+      else if(inRockGlobe())globeStickAct();else spaceAction();}   // A · build/refine the picked thing · place/inspect in the globe · else land / jump / lift
+    if(edge(2))interact();             // X · board / exit / inspect / speak — inspects the globe cursor there too (interact(), 05a)
+    if(edge(3)){if(mode==='cabin')cabinFlip(1);else if(mode==='space')walkMyRock();else if(inRockGlobe())toggleGlobeHeat();else toggleMap();}   // Y · walk your rock (space) · flip viewscreen (cabin) · heat overlay (globe) · else chart
+    if(edge(1)){closeBeaconPicker();closeCraftPicker();
+      if(setEl.style.display==='flex')menuBack();
+      else if(mode==='cabin')exitCabin();
+      else if(inRockGlobe())exitRockGlobe();}   // B · back out — including out of the globe view
     if(edge(9))togglePause();   // Start · step into / out of the cabin
     if(edge(11))unwindCam();    // R3 · recenter the camera behind you
     if(edge(4)&&((mode==='surface'&&onFoot)||mode==='rockwalk'))toggleHover();   // LB on foot / on your rock · hoverboard
+    // M1(1) — RB · grapple on foot (fireGrapple/releaseGrapple, 04a — the keyboard J binding's own
+    // toggle shape). RB stays roll-only in space (pad.roll, set unconditionally above) — this only
+    // fires the edge while actually on foot, so it never fights the flight roll.
+    if(edge(5)&&mode==='surface'&&onFoot&&!craftOpen){if(grap)releaseGrapple(false);else fireGrapple();}
     // TOWN ERA Run 3 — RB flips RAISE↔REFINE while the bench is open (building-upgrade rows in the
     // REFINE tab are mouse/touch-only this run — an honest gap, see docs/TOWN_ERA.md Run 3 verify).
     if(craftOpen&&edge(5)){craftTab=craftTab==='raise'?'refine':'raise';craftSel=0;renderCraftPicker();}
@@ -2894,7 +3488,7 @@ function paintPanel(){const hk=HULLK[shell.hull];
   document.getElementById('vThr').textContent='throttle · '+('█'.repeat(Math.round(shell.throttle*8)).padEnd(8,'░'))+' '+tp+'%';}
 // ─── LIGHT + SCREEN — the toggles a game designer reaches for. All persisted. ───
 let fx={preset:5,scan:1,grain:0,vig:0,aber:1,pal:0,flare:1,shad:1,cont:1,night:0,haze:0,
-  temp:2,sat:3,crush:1,split:2,invSpace:0,invLand:0,lush:2,ink:2};        // dks's look, saved as the norm (cozy, warm, a touch of aberration); lush=2 → grassDensityMul 3 (CAPACITY PASS Tier 1 default), GPU-only, no-op under ?cpu; ink=2 → INK_VALS[2]=0.7, the OUTLINE PASS's shipped default strength, GPU-only (no-op under ?cpu, which has no outline/inner-edge pass)
+  temp:2,sat:3,crush:1,split:2,invSpace:0,invLand:0,lush:2,ink:2,mouseSens:2};        // dks's look, saved as the norm (cozy, warm, a touch of aberration); lush=2 → grassDensityMul 3 (CAPACITY PASS Tier 1 default), GPU-only, no-op under ?cpu; ink=2 → INK_VALS[2]=0.7, the OUTLINE PASS's shipped default strength, GPU-only (no-op under ?cpu, which has no outline/inner-edge pass); mouseSens=2 → MOUSE_SENS_VALS[2]=1x (M2 pointer-lock dial, 05a)
 try{const f2=JSON.parse(localStorage.getItem('fkvox.fx'));if(f2)fx={...fx,...f2};}catch{}
 const saveFx=()=>{try{localStorage.setItem('fkvox.fx',JSON.stringify(fx));}catch{}};
 const FXV={
@@ -2916,8 +3510,10 @@ const FXV={
   invSpace:['space look · normal','space look · inverted'],
   invLand:['ground look · normal','ground look · inverted'],
   lush:['×1','×2','×3','×4','×5','×6'],   // grassDensityMul, GPU-only dev/live-tuning knob (design doc §8) — 1-6, index+1 == the actual multiplier
-  ink:['off','0.35','0.7','1.0']};   // OUTLINE PASS strength (depth-edge dark lines + v2's normal-crease bright lines) — index into INK_VALS, GPU-only, no-op under ?cpu
+  ink:['off','0.35','0.7','1.0'],   // OUTLINE PASS strength (depth-edge dark lines + v2's normal-crease bright lines) — index into INK_VALS, GPU-only, no-op under ?cpu
+  mouseSens:['0.5×','0.75×','1×','1.4×','1.8×']};   // M2 — pointer-lock mouse-look sensitivity, index into MOUSE_SENS_VALS
 const INK_VALS=[0,0.35,0.7,1.0];
+const MOUSE_SENS_VALS=[0.5,0.75,1,1.4,1.8];
 // split-tone schemes: [shadow-colour, highlight-colour], blended by luminance
 const SPLITS=[null,[[38,116,120],[206,124,58]],[[40,58,112],[212,152,72]],[[30,82,52],[150,168,66]]];
 // each preset is a whole RECIPE — screen dressing AND grade together (restraint: a few knobs at once)
@@ -2939,8 +3535,17 @@ function paintFx(){
   set('fPreset','preset','preset · ');set('fScan','scan','scanlines · ');set('fGrain','grain','grain · ');
   set('fVig','vig','vignette · ');set('fAber','aber','aberration · ');set('fPal','pal');
   set('fTemp','temp');set('fSat','sat');set('fCrush','crush');set('fSplit','split');
-  set('fInvSpace','invSpace');set('fInvLand','invLand');set('fLush','lush','grass density · ');set('fInk','ink','ink · ');}
+  set('fInvSpace','invSpace');set('fInvLand','invLand');set('fLush','lush','grass density · ');set('fInk','ink','ink · ');
+  set('fMouseSens','mouseSens','mouse look · ');}
 const lightPanel=document.getElementById('lightPanel'),fxPanel=document.getElementById('fxPanel');
+// M2 — the pointer-lock sensitivity dial lives in the same CAMERA section as the invert toggles;
+// fxPanel's markup is head-file HTML I can't add rows to directly, so inject this one at load time,
+// the same pattern the runtime already uses for panel content built in JS. (Must come AFTER the const
+// fxPanel= line above, not before — a top-level reference to fxPanel ahead of its own declaration in
+// this same chunk is a TDZ ReferenceError that halts the whole concatenated script at load.)
+{const camCap=[...fxPanel.querySelectorAll('.cap')].find(c=>c.textContent.indexOf('CAMERA')>=0);
+  if(camCap)camCap.insertAdjacentHTML('afterend',
+    '<div class="row"><span class="ar" data-f="mouseSens" data-d="-1">‹</span><span class="val" id="fMouseSens"></span><span class="ar" data-f="mouseSens" data-d="1">›</span></div>');}
 // the config panels live INSIDE the menu as sub-screens, not separate popups — re-parent now they exist
 {const term=setEl.querySelector('.term');term.appendChild(panel);term.appendChild(fxPanel);term.appendChild(lightPanel);}
 function closePanels(){panel.style.display='none';lightPanel.style.display='none';fxPanel.style.display='none';}
@@ -3059,6 +3664,7 @@ function homesteadAct(){                                                   // F 
   const arc=Math.acos(Math.max(-1,Math.min(1,vdot(hs.d,surf.botF.d))))*surf.R;
   if(arc>=3.0)return false;
   if(stayArm<=0){stayArm=4;toast('stay here for good — end the run? this cannot be undone — press F again to confirm',4);return true;}
+  typeof sfx==='function'&&sfx('homestead');typeof achieve==='function'&&achieve('homestead');
   stayHere('stay');stayArm=0;return true;
 }
 // STRAND HERE — the involuntary end. Out of fuel AND out of the network's reach: you can coast at a
@@ -3256,12 +3862,55 @@ function ctxAct(){
   else if(mode==='surface'&&!onFoot)liftOff();
   else if(mode==='surface'&&onFoot){const po=nearPoi();if(po)showLog(po);}
   else if(mode==='space'&&landTarget&&!wipe)startWipe(landTarget.sx,landTarget.sy,landTarget.e.p.ramp[1],()=>enterOrbitThenWalkRock(landTarget));}
+// ═══ STEAM REVIEW S4 — NAME YOUR ROCK: F at your OWN hearth, once it's tier ≥2, opens a small inline
+// text field inside the same logCard overlay every other found-thing uses. game.rockName then flows
+// into the Archive entry, the chart pin, and (HANDOFF) the HUD and the town letter. textEntryOpen is
+// a global bail flag — the keyboard handler that drives WASD/F/space etc. must check it first so a
+// player typing "f" or "space" into the name field doesn't also fire the game underneath (HANDOFF:
+// 05d-easter-eggs.js's keydown listener, first line of the body). ═══
+let textEntryOpen=false;
+function hearthNameAct(){
+  if(!surf||!surf.isRock||!onFoot)return false;
+  const h=typeof findBuild==='function'&&findBuild('hearth');if(!h)return false;
+  if((typeof infraTierOf==='function'?infraTierOf('hearth'):0)<1)return false;   // tier>=2 (0-based: 0=tier1, 1=tier2)
+  const ad=Math.acos(Math.max(-1,Math.min(1,vdot(h.d,surf.botF.d))))*surf.R;
+  if(ad>=4)return false;
+  openRockNamer();
+  return true;
+}
+function openRockNamer(){
+  textEntryOpen=true;
+  const lc=document.getElementById('logCard');
+  document.getElementById('logKind').textContent='NAME THIS ROCK';
+  document.getElementById('recruitBtn').style.display='none';pendingFork=null;
+  document.getElementById('raiseHomeBtn').style.display='none';pendingHomeCrewI=null;
+  document.getElementById('logBody').innerHTML='<div style="color:#B8BECC;line-height:1.5;margin-bottom:8px">call this rock something · Enter saves, Escape cancels</div>'
+    +'<input id="rockNameInput" maxlength="24" style="width:88%;font-family:\'Pixelify Sans\',monospace;font-size:13px;background:#12141f;color:#f3f0e7;border:1px solid #4cb7c6;border-radius:4px;padding:6px 8px" placeholder="the workshop">';
+  lc.onclick=()=>closeRockNamer();   // the card's default backdrop-click (see 00-head.html.part) would leave textEntryOpen stuck true; route it through the same close so the guard always lifts
+  lc.style.display='block';
+  const inp=document.getElementById('rockNameInput');
+  inp.value=game.rockName||'';
+  inp.focus();
+  inp.addEventListener('click',e=>e.stopPropagation());
+  inp.addEventListener('keydown',e=>{e.stopPropagation();
+    if(e.key==='Enter'){const v=inp.value.trim().slice(0,24);
+      if(v){game.rockName=v;typeof achieve==='function'&&achieve('renamed');saveSlot();toast('this rock is called '+v,3);}
+      closeRockNamer();}
+    else if(e.key==='Escape')closeRockNamer();});
+}
+function closeRockNamer(){
+  textEntryOpen=false;
+  const lc=document.getElementById('logCard');
+  lc.style.display='none';
+  lc.onclick=function(){this.style.display='none';};   // restore the default backdrop-click for every other logCard use
+}
 function footAct(){if(mode!=='surface')return;
   if(surf.isRock&&onFoot){   // on your rock you FIRE THE ENGINE — but only standing at it (diegetic, not a lander you board anywhere)
     if(holdPropAct())return;   // inside the Hold: the chart table / forge bench / wardrobe mirror take priority
-    if(dockVisitorAct())return;
+    if(dockVisitorAct()){game.visits=game.visits||{};game.visits.dock=(game.visits.dock||0)+1;return;}   // F5 — worn paths
     if(cradleBoardAct())return;   // at the Cradle: board the drop ship (or the honest hint if nothing's queued)
     if(homesteadAct())return;   // at the homestead: the confirm that ends the run
+    if(hearthNameAct()){game.visits=game.visits||{};game.visits.hearth=(game.visits.hearth||0)+1;return;}   // S4: at your own hearth, tier 2+ — name the rock (F5: counts as a visit)
     if(Math.acos(Math.max(-1,Math.min(1,vdot(surf.botF.d,surf.shipF.d))))*surf.R<5.5)launchRock();
     else toast('walk to your engine to fire it — follow the beam',2);
     return;}
@@ -3287,6 +3936,10 @@ function placeLab(el,sx,sy,op){el.style.display='block';el.style.left=(sx/W*inne
 let T=performance.now()/1000;
 function stepSpace(dt){
   if(thresholdOpen){ship.v=0;return;}                        // frozen at the edge while you choose who crosses
+  // STEAM S1 hook (docs/STEAM_REVIEW.md S1) — "a chart annotation when you cross the arm": no existing
+  // arm-crossing detection, so per the fallback this fires once, ever, the first time your OWN
+  // strangeness crosses 0.5 (matches sysFor's own "near the core, worlds turn alien" threshold family).
+  if(SLOT!=null&&game&&!game.crossedArm&&strangeOf(ship.x,ship.y,ship.z)>0.5){game.crossedArm=true;if(typeof storyBeat==='function')storyBeat('cross_arm');}
   if(!ship.F)shipBasisFromEuler();
   steerShip6(dt);            // hand-flying rotates the live basis (and cancels the autopilot)
   const tg=apTarget();
@@ -3603,9 +4256,30 @@ function drawSpeedLines(){
     ctx.strokeStyle=(ihash(i*7)<0.3?'rgba(243,240,231,':('rgba('+ac[0]+','+ac[1]+','+ac[2]+','))+al+')';
     ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}
 }
+// STEAM P2 (docs/STEAM_REVIEW.md P2) — FUEL AS TENSION: show the decision, don't just gate it. Mirrors
+// stepSpace's own burn math exactly (DV[3]*0.6, surge ×2.2) so the number the HUD prints is the number
+// the drive will actually spend getting there — a straight-line estimate at the current throttle, not
+// a promise (a slingshot or a hand-flown detour can spend more or less). Returns the trip's cost as a
+// PERCENT OF THE FULL TANK (not of what's left) — "reach · 61% of tank" reads the same whether you're
+// full or half-empty, which is the actual decision: can this drive afford this jump at all.
+function reachPct(){
+  const tg=apTarget();if(!tg)return null;
+  const dist=Math.hypot(tg.x-ship.x,tg.y-ship.y,tg.z-ship.z);
+  const DV=DRIVES[shell.drive%DRIVES.length];
+  const surging=!!(autopilot&&autopilot.surge>0.01);
+  const vmax=Math.max(1,DV[1]*shell.throttle*(surging?(1+autopilot.surge*1.6):1));
+  const burnRate=DV[3]*0.6*(surging?2.2:1);
+  const need=(dist/vmax)*burnRate;                      // fuel units this trip would drink at this throttle
+  return Math.round(Math.max(0,Math.min(999,100*need/game.fuelMax)));
+}
+let hudReachT=0;
 let driftCam=0, driftRoll=0, prevYaw=0;
 function frameSpace(dt){
   stepSpace(dt);
+  // STEAM P2 — the resources HUD (paintRes, 03c) isn't repainted every frame in space; nudge it a few
+  // times a second so "reach · NN% of tank" tracks the ship's own position/throttle as you fly, not
+  // just at the moment you locked the target.
+  hudReachT+=dt;if(hudReachT>0.25){hudReachT=0;if(SLOT!=null&&typeof paintRes==='function')paintRes();}
   checkEggs();                                           // did we drift near something hidden in the deep?
   // ── DRIFT CAMERA — while the pilot runs a route the camera drops back and BANKS into the turns,
   // selling the speed. Eases in and out so hand-flying feels normal. ──
@@ -3891,7 +4565,9 @@ function frameSpace(dt){
   drawWipe(dt);
   hideLabels();
   ctxBtn.style.display=(landTarget&&!wipe)?'block':'none';
-  if(landTarget)ctxBtn.textContent=padA()+' · ORBIT · '+worldName(landTarget.A.sys.vi,landTarget.A.sys.planets.indexOf(landTarget.e.p));   // Run 3: rename — this arrives you IN ORBIT, not on the ground; E · TO DROP BAY does the actual landing now
+  // STEAM S3 hook (docs/STEAM_REVIEW.md S3, per Lane C) — the reticle names a fork's world when one's charted there.
+  if(landTarget){const vi9=landTarget.A.sys.vi;const fk=typeof forkAtWorld==='function'?forkAtWorld(vi9):null;
+    ctxBtn.textContent=padA()+' · ORBIT · '+worldName(vi9,landTarget.A.sys.planets.indexOf(landTarget.e.p))+(fk?' · '+fk:'');}   // Run 3: rename — this arrives you IN ORBIT, not on the ground; E · TO DROP BAY does the actual landing now
   footBtn.style.display='none';
   // STRAND offer: dry AND beyond every beacon's reach — the run's only involuntary end. inRange is only
   // probed when the tank's empty, so a fuelled ship pays nothing. Coast into range and it hides itself.
@@ -3950,10 +4626,27 @@ function frameMap(dt){
     const x=mapSX(v.x)|0,y=mapSY(v.y)|0;if(x<-24||x>W+24||y<-12||y>H+12)continue;
     const civs=systemCivs(+vi);if(!civs.length)continue;
     for(let k=0;k<civs.length&&k<3;k++)addSq(x-2+k*3,y+3,2,SPECIES[civs[k]].col,0.9);
+    // STEAM REVIEW S5 -- the first shoreline shoal you chart gets a one-time annotation. tide-folk are
+    // the only `shoal`-town species (SPECIES[].town==='shoal'), so this fires exactly once, ever.
+    if(!chart.tidefolkNoted&&civs.some(ci=>SPECIES[ci].town==='shoal')){
+      chart.tidefolkNoted=1;chartDirty=true;
+      toast('a shoreline shoal · first one on your map · the water there keeps its own count',5);}
     if(sc>0.3){let clear2=true;                                        // declutter: a name only writes where it has room
       for(const L of _lbl)if(Math.abs(x-L[0])<52&&Math.abs(y-L[1])<11){clear2=false;break;}
       if(clear2){_lbl.push([x,y]);
         drawGlyphText(SPECIES[civs[0]].name,x+6,y-4,SPECIES[civs[0]],1,SPECIES[civs[0]].col,0.85);}}}}
+  // STEAM REVIEW S3 -- THE ARCHIVE ON THE MAP: every fork's world is known (Archive entry .vi), so
+  // once you've charted that system a dim flag marks where they stayed -- the same glyph the
+  // completion beat plants at your own rock (10d), a duller color so it never competes with your own pin.
+  if(typeof loadArchive==='function'){
+    const arch=loadArchive();
+    ctx.font='4px "Pixelify Sans",monospace';ctx.textAlign='center';
+    for(const f of arch){
+      if(f.vi==null||!chart.charted[f.vi])continue;
+      const v=vox[f.vi];if(!v)continue;
+      const x=mapSX(v.x),y=mapSY(v.y);if(x<-6||x>W+6||y<-6||y>H+6)continue;
+      ctx.fillStyle='rgba(139,99,200,0.42)';ctx.fillText('\u2691',x,y+1.5);}
+    ctx.textAlign='left';}
   // ── the wake and YOU ARE HERE ──
   for(let i=0;i<trail.length;i++){const t2=trail[i];add(mapSX(t2[0]),mapSY(t2[1]),C.cyan,0.2+0.4*(i/trail.length));}
   {const x=mapSX(ship.x),y=mapSY(ship.y),bl2=0.55+0.45*Math.sin(T*3.5);
@@ -4057,6 +4750,19 @@ const SPECIES_WANTS={
  rootwalkers: {axis:'beauty',     want:'high',       tol:0.4},   // some of the trees are listening
  tidefolk:    {axis:'nearKind',  want:'well',       tol:9},     // no wall goes up before the tide's seen it twice — water where they can find it
 };
+// STEAM REVIEW S2 -- SPECIES_AFFINITY: explicit pair calls where a quirk or trade fact makes the
+// relationship obvious. pairClass() (08c) checks this first, in either key order, and falls back to
+// a trade-fit + shared-habitat heuristic for every pair not listed here. Purely additive -- nothing
+// else in the file reads this table, so it can grow without touching SPECIES_WANTS' own axis logic.
+const SPECIES_AFFINITY={
+ 'sporewardens:mycel':'wary',        // "the Mycel call them feral; they agree"
+ 'solder:prisms':'friendly',         // both work heat and glass into their homes
+ 'glasseyes:mycel':'wary',           // two hive-minded customs, each certain it's the sane one
+ 'vashi:cairnfolk':'wary',           // migrants and monument-builders don't share a calendar
+ 'reedmen:canopers':'friendly',      // river and branch, same living-world neighbors
+ 'moundborn:aerie':'hostile',        // a ground-bound hospitality law versus a sky burial -- old friction
+ 'registry:balloonate':'wary',       // a filing system meets a people with no fixed address
+ 'monoliths:spindles':'hostile'};    // one stone at a time versus down is a rumor -- nothing to talk about
 // ── PLACEMENT — deterministic: which world belongs to whom. Roll ~1-in-4 then habitat-filter,
 // which lands near the 1-in-5 target. Rare species weigh in at a third. ──
 const _civC=new Map();
@@ -4468,7 +5174,25 @@ const CIVARCH={
  // tide-folk (TOWN ERA 22nd species) — a nacre/pearl shell tapering to a point, raised on a low
  // stilt above the tideline. First arch to actually spend Pearl-chitin (sourced since Run 1,
  // never required until now).
- 'shell-spiral':  {m:[C.bone,C.silver,C.white],        roof:'spire',plan:'round',h:1.6,stilt:0.9, mat:'pearlchitin'}};
+ 'shell-spiral':  {m:[C.bone,C.silver,C.white],        roof:'spire',plan:'round',h:1.6,stilt:0.9, mat:'pearlchitin'},
+ // STEAM F5 (docs/STEAM_REVIEW.md F5) — THE DRIFTER'S OWN ARCHITECTURE: every alien home reads its
+ // material off this table; your own hearth/homestead never did, so the rock never read as YOURS.
+ // 'drifter' keys off game.craft (the rock's own hull, i.e. its forged shape) instead of a species —
+ // no single static trio makes sense there, so it's a lookup (CIVARCH_DRIFTER_BY_SHAPE, below) behind
+ // a helper (drifterArchMat()) rather than a flat {m:[...]} entry. 10c's buildRockVox reads the helper
+ // for the hearth's roof and the homestead's ring/dome instead of the old hardcoded steel.
+ 'drifter':       {m:null,                                 roof:'flat', plan:'sq',   h:1.6, mat:null}};
+const CIVARCH_DRIFTER_BY_SHAPE={
+  spheroid:[dark2(C.steel), C.steel, C.silver],
+  oblong:  [dark2(C.steel), C.steel, C.ice],
+  teardrop:[dark2(C.redsh), C.steel, C.amber],
+  cube:    [dark2(C.deep),  C.steel, C.gold],
+  donut:   [dark2(C.violsh),C.steel, C.viol],
+  helix:   [dark2(C.greensh),C.steel,C.green]};
+function drifterArchMat(){
+  const shp=(typeof game!=='undefined'&&game&&game.craft&&game.craft.shape)||'spheroid';
+  return CIVARCH_DRIFTER_BY_SHAPE[shp]||CIVARCH_DRIFTER_BY_SHAPE.spheroid;
+}
 const CULTURE_HOME_COST=3;                                   // 2-3 units per TOWN_ERA.md §2 "cozy-simple by design"
 function civVox(sp,kind,seed,tier,d){
   const A=CIVARCH[sp.arch];if(!A)return null;
@@ -4596,7 +5320,14 @@ function drawCivTown(dt){
   if(onFoot&&(!game.contact||!game.contact[sp.key])){
     const dpp=Math.max(-1,Math.min(1,vdot(tw.ctr,surf.botF.d)));
     if(Math.acos(dpp)*surf.R<13){civRec(sp.key);freeze(0.06);shake(0.25);
-      toast('✦ first contact · '+(sp.name.indexOf('the ')===0?sp.name:'the '+sp.name)+' · they speak in a hand you cannot read yet',5);saveSlot();}}
+      toast('✦ first contact · '+(sp.name.indexOf('the ')===0?sp.name:'the '+sp.name)+' · they speak in a hand you cannot read yet',5);saveSlot();
+      if(typeof sfx==='function')sfx('contact');
+      if(typeof achieve==='function')achieve('first_contact');
+      // STEAM S5 hook (docs/STEAM_REVIEW.md S5, per Lane C) — tide-folk get their own first-contact beat.
+      if(sp.key==='tidefolk'){
+        if(typeof achieve==='function')achieve('tidefolk');
+        if(typeof storyBeat==='function')storyBeat('tidefolk_first_contact');
+      }}}
   // ── a SPEECH BUBBLE, written in their own hand, hanging over the speaker ──
   drawSpeechBub();
 }
@@ -4649,9 +5380,74 @@ function civLearn(key,n){const rec=civRec(key),abc='abcdefghijklmnopqrstuvwxyz';
 // an apostrophe isn't a glyph you learn, so it shouldn't dot out like one.
 function civPartial(txt,key){const rec=civRec(key);let out='';
   for(const ch of txt){const lc=ch.toLowerCase();out+=(!/[a-z]/.test(lc)||rec.lt[lc])?ch:'·';}return out;}
-function civLines(sp){return [sp.quirk,'the wind was kind to bring you','we saw your rock cross the sky','stay for the light, drifter'];}
+// STEAM REVIEW S2 -- one extra greeting for the species whose quirk makes it obvious on sight (<=10
+// lines added total). Everyone else keeps the shared three plus their quirk, same as before.
+const SPECIES_GREET2={
+ prisms:'come see the house before the grandparents wake',
+ reedmen:"careful, that hat's failed twice already",
+ solder:"mind the melt, the masks aren't dry yet",
+ vashi:"we'll sing you the way back, if you forget it",
+ mycel:'the town already knows you are here',
+ glasseyes:'we blink together at dusk. join us or do not look',
+ monoliths:"no hurry. we've got none either",
+ tidefolk:"the tide hasn't seen this wall yet. give it time",
+ spindles:'down is a rumor here. mind your footing anyway',
+ registry:"we've got a page on you. it's a thin one"};
+function civLines(sp){
+  const base=[sp.quirk,'the wind was kind to bring you','we saw your rock cross the sky','stay for the light, drifter'];
+  const g2=SPECIES_GREET2[sp.key];
+  return g2?base.concat(g2):base;
+}
+// STEAM REVIEW S2 -- SPECIES TALK TO EACH OTHER: a line bank per pair class, derived from
+// SPECIES_AFFINITY (08a, explicit calls where a quirk makes the relationship obvious) with a
+// deterministic fallback (trade fit + shared habitat) for every pair not listed there. Same key on
+// both sides is always kin. pairLine(aKey,bKey) -- both species KEYS (crew.alien) -- returns one
+// overheard line; called from the ambient bubble tick (10d, Lane D) when two townies pass close.
+function pairClass(aKey,bKey){
+  if(aKey===bKey)return 'kin';
+  const AF=(typeof SPECIES_AFFINITY!=='undefined'&&SPECIES_AFFINITY)||{};
+  if(AF[aKey+':'+bKey])return AF[aKey+':'+bKey];
+  if(AF[bKey+':'+aKey])return AF[bKey+':'+aKey];
+  const A=SPECIES.find(s=>s.key===aKey),B=SPECIES.find(s=>s.key===bKey);
+  if(!A||!B)return 'wary';
+  const tradeFit=A.trade.sell===B.trade.buy||B.trade.sell===A.trade.buy;
+  const habitat=Object.keys(A.ty).some(t=>B.ty[t]);
+  if(tradeFit&&habitat)return 'friendly';
+  if(tradeFit||habitat)return 'wary';
+  return (strHash(aKey+bKey)&1)?'wary':'hostile';
+}
+const PAIR_LINES={
+ kin:["mind the roof, it listens",
+      "eat something before the light goes out on you",
+      "your door still stuck, or did you fix it",
+      "tell them I said the water's fine today",
+      "same walk we did as kids, near enough",
+      "you smell like the forge, get some sleep",
+      "don't let the little one near the ridge again"],
+ friendly:["your kind still eat that? never tried it myself",
+      "good roof you've got. wish ours held heat half as well",
+      "you're up early for one of yours",
+      "tell your people the well's open to anyone thirsty",
+      "never seen hands work like that. teach me sometime",
+      "your children play well with mine. good sign"],
+ wary:["keep to your side of the path, we'll keep to ours",
+      "nothing personal. just don't know your customs yet",
+      "watch that one. not unkind, just not known",
+      "we nod. that's as far as it's gone so far",
+      "different hours, different gods, same rock. fine by me",
+      "ask before you touch anything of theirs. learned that the hard way"],
+ hostile:["keep them off the west path. I mean it",
+      "they took the west plot's water once. once was plenty",
+      "their kind and mine don't share a fire. simple as that",
+      "watched what they did to the last plot they touched",
+      "polite to their face. that's the whole arrangement",
+      "count your matter after they've been by"]};
+function pairLine(aKey,bKey){
+  const pool=PAIR_LINES[pairClass(aKey,bKey)]||PAIR_LINES.wary;
+  return pool[(Math.random()*pool.length)|0];
+}
 function civSpeak(m){const sp=SPECIES[m.spi];
-  const line=civLines(sp)[(Math.random()*4)|0];
+  const cl=civLines(sp);const line=cl[(Math.random()*cl.length)|0];
   surf._bub={fr:m.fr,txt:line,spi:m.spi,until:T+4.5,scale:speciesFig(sp).scale};
   // SHIPTOWN Run 3 — glyph-gating THRESHOLD TUNING: 2→3 letters/speak. dks ruling 4 (PURE GATE) stays —
   // still no translator shortcut — but at the old 2/speak + 1/trade rate a player juggling several
@@ -4660,25 +5456,76 @@ function civSpeak(m){const sp=SPECIES[m.spi];
   // the gate real while a want-checklist starts showing real words within the first few conversations.
   const known=civLearn(sp.key,3);
   toast('“'+civPartial(line,sp.key)+'”'+(known<26?' · '+known+'/26 letters':''),4);}
+// STEAM REVIEW M5 -- TRADE WITH A COUNTERPARTY. avgSatisfaction/tradePriceMul give a happy town up
+// to 10% better rates (a sulking one up to 10% worse) on every trade, dock or town stall alike.
+// genManifest seeds the second good a DOCK trader carries per visit -- always a culture material your
+// own ecosystem can't grow (ECOSYSTEM_CULTMAT, 01b). registerDockFail tracks a visitor who leaves
+// twice with nothing traded; drawDockVisit's met-list filter (below, same file) stops offering that
+// species a slot until game.functionUnlocks.tavern exists.
+function avgSatisfaction(){const c=game.crew||[];if(!c.length)return 0.5;let s=0;for(const x of c)s+=x.satisfaction||0;return s/c.length;}
+function tradePriceMul(){return 1+(avgSatisfaction()-0.5)*0.2;}
+function genManifest(sp,seedN){
+  const r=mulberry32((seedN^0x7A11)>>>0);
+  const localCult=ECOSYSTEM_CULTMAT[(game.craft&&game.craft.ecosystem)||'meadow'];
+  const pool=CULTMAT_ORDER.filter(k=>k!==localCult);
+  const cult=pool.length?pool[(r()*pool.length)|0]:CULTMAT_ORDER[0];
+  return {cult,cultAmt:2+((r()*3)|0)};
+}
+function registerDockFail(key){
+  if(!key)return;game.dockFails=game.dockFails||{};game.dockFails[key]=(game.dockFails[key]||0)+1;
+  if(game.dockFails[key]>=2){game.dockBanned=game.dockBanned||{};game.dockBanned[key]=true;}
+  saveSlot();
+}
 let _tradeEl=null;
-function openTrade(spi){const sp=SPECIES[spi],rec=civRec(sp.key);
+// F4 (Lane E) — one small chip helper so every good in the trade window carries its own pixel swatch
+// (MATTER for the standard row, CULTMAT for the manifest row) instead of just naming the good in text.
+function tSwatch(col){return '<span style="display:inline-block;width:8px;height:8px;background:rgb('+col.join(',')+');margin-right:5px;vertical-align:middle;border:1px solid rgba(0,0,0,.4);border-radius:2px"></span>';}
+function openTrade(spi,manifest){const sp=SPECIES[spi],rec=civRec(sp.key);
   if(!_tradeEl){_tradeEl=document.createElement('div');_tradeEl.id='tradeP';
-    _tradeEl.style.cssText='position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);background:rgba(18,20,32,0.93);border:1px solid #4cb7c6;border-radius:8px;padding:14px 18px;font-family:"Pixelify Sans",monospace;color:#f3f0e7;z-index:40;min-width:230px;text-align:center';
+    // F4 — the same ink-panel-with-accent vocabulary as the forge/HUD panels: 2px border, chunky
+    // shadow; the left accent below is set per-species so a trade with the prisms reads different
+    // from a trade with the solder, same as their own colour reads everywhere else in the game.
+    _tradeEl.style.cssText='position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);background:rgba(20,22,30,.95);border:2px solid #3a4358;border-radius:10px;padding:16px 20px;font-family:"Pixelify Sans",monospace;color:#f3f0e7;z-index:40;min-width:240px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)';
     document.body.appendChild(_tradeEl);}
-  const rate=sp.trade.rate,give=10,get=Math.max(1,(10*rate)|0);
-  const bk=sp.trade.buy,sk=sp.trade.sell;
+  _tradeEl.style.borderLeft='3px solid rgb('+sp.col.join(',')+')';
+  const pm=tradePriceMul(),rate=sp.trade.rate*pm,give=10,get=Math.max(1,(10*rate)|0);
+  const bk=sp.trade.buy,sk=sp.trade.sell,bm=MATTER[bk],sm=MATTER[sk];
+  // the price drift is real (avgSatisfaction swings it ±10%) — say so plainly instead of burying it
+  // in a rate number nobody reads: "+8% today" / "−4% today", no rounding tricks, no hidden fee.
+  const pct=Math.round((pm-1)*100),pctStr=(pct>=0?'+':'−')+Math.abs(pct)+'%',
+    pctCol=pct>0?'#7FBE6B':pct<0?'#C97B6B':'#8B94A6';
   const flu=Object.keys(rec.lt).length;
   const spName=sp.name.indexOf('the ')===0?sp.name:'the '+sp.name;
-  _tradeEl.innerHTML='<div style="font-size:15px;margin-bottom:2px">'+spName+'</div>'
+  // NOTE (F4 fix, in-scope): .btn is position:absolute globally (it's built for the fixed HUD
+  // buttons like #thrust/#mapBtn) — these rows never overrode that, so tGo/tGo2/tX have always sat on
+  // top of each other whenever a manifest row was present, pre-dating this pass. Keeping class="btn"
+  // (03e's focus manager selects '.btn' for pad/keyboard nav — FOCUS_ITEM_SEL) but adding
+  // position:static puts them back in normal document flow without touching that selector at all.
+  let manRow='';
+  if(manifest){const cm=CULTMAT[manifest.cult],cget=Math.max(1,Math.round(manifest.cultAmt*pm));
+    manRow='<div class="btn" id="tGo2" style="position:static;display:block;margin:6px 0">'+tSwatch(cm.col)+'GIVE '+give+' '+bk.toUpperCase()+' &rarr; TAKE '+cget+' '+cm.label.toUpperCase()+'</div>';}
+  _tradeEl.innerHTML='<div style="font-size:9px;letter-spacing:2.5px;color:#586273;text-transform:uppercase;margin-bottom:4px">'+(sp.style||'')+' hands</div>'
+    +'<div style="font-size:15px;margin-bottom:2px">'+spName+'</div>'
     +'<div style="opacity:0.6;font-size:11px;margin-bottom:10px">'+(flu>=18?sp.quirk:civPartial(sp.quirk,sp.key))+'</div>'
-    +'<div class="btn" id="tGo" style="display:block;margin:6px 0">GIVE '+give+' '+bk.toUpperCase()+' &rarr; TAKE '+get+' '+sk.toUpperCase()+'</div>'
+    +'<div class="btn" id="tGo" style="position:static;display:block;margin:6px 0">'+tSwatch(sm.col)+'GIVE '+give+' '+bk.toUpperCase()+' &rarr; TAKE '+get+' '+sk.toUpperCase()+'</div>'
+    +'<div style="font-size:10px;color:'+pctCol+';margin:-2px 0 8px">rate '+pctStr+' today</div>'
+    +manRow
     +'<div style="opacity:0.55;font-size:11px">you hold '+((game.mat&&game.mat[bk])|0)+' '+bk+'</div>'
-    +'<div class="btn" id="tX" style="display:block;margin-top:10px">LEAVE THE STALL</div>';
+    +'<div class="btn" id="tX" style="position:static;display:block;margin-top:10px">LEAVE THE STALL</div>';
   _tradeEl.style.display='block';
   document.getElementById('tGo').onclick=()=>{
     if(((game.mat&&game.mat[bk])|0)<give){toast('not enough '+bk,2);return;}
     game.mat[bk]-=give;gainMatter(sk,get);civLearn(sp.key,2);paintRes();
-    toast('traded — the '+sp.name+' nod',2);openTrade(spi);};
+    if(surf._dockV)surf._dockV.traded=true;
+    if(game.dockFails)delete game.dockFails[sp.key];
+    toast('traded — the '+sp.name+' nod',2);openTrade(spi,manifest);};
+  if(manifest){document.getElementById('tGo2').onclick=()=>{
+    if(((game.mat&&game.mat[bk])|0)<give){toast('not enough '+bk,2);return;}
+    const cget=Math.max(1,Math.round(manifest.cultAmt*pm));
+    game.mat[bk]-=give;gainCultMat(manifest.cult,cget);civLearn(sp.key,2);paintRes();
+    if(surf._dockV)surf._dockV.traded=true;
+    if(game.dockFails)delete game.dockFails[sp.key];
+    toast('traded — '+CULTMAT[manifest.cult].label+' changes hands',2);openTrade(spi,manifest);};}
   document.getElementById('tX').onclick=()=>{_tradeEl.style.display='none';};}
 function civTalkOrTrade(){
   const tw=surf.town;if(!tw||!onFoot)return false;
@@ -4767,7 +5614,7 @@ function drawCivTraffic(){                                          // in-system
     // a passing hail, in their half-learned words
     if(pd2<80*80&&(rt._hailT===undefined||T-rt._hailT>45)){rt._hailT=T;
       const sp=SPECIES[rt.spi],met=game.contact&&game.contact[sp.key];
-      const line=met?civPartial(civLines(sp)[(ihash((rt.a*31+((T/10)|0))>>>0)*4)|0],sp.key):'····· ·· ···· ····';
+      const cl2=civLines(sp);const line=met?civPartial(cl2[(ihash((rt.a*31+((T/10)|0))>>>0)*cl2.length)|0],sp.key):'····· ·· ···· ····';
       spaceSay(met?('the '+sp.name.replace(/^the /,'')):'an unknown hail','“'+line+'”',x,y,z,sp.col,rt);}}}
 // ── town landings: every so often, one of theirs sets down on the landing ground while you watch ──
 function drawTownShip(){
@@ -4789,8 +5636,13 @@ function drawTownShip(){
 function drawDockVisit(dt){
   if(!surf.isRock||!game.dockBuilt)return;
   const dock=surf.builds&&surf.builds.find(b=>b.kind==='dock');if(!dock)return;
-  const met=Object.keys(game.contact||{}).filter(k=>SPECIES.some(sp=>sp.key===k));
-  if(!met.length)return;                                            // nobody knows your address yet
+  let met=Object.keys(game.contact||{}).filter(k=>SPECIES.some(sp=>sp.key===k));
+  // STEAM REVIEW M5 -- a trader who left twice with nothing traded stops calling, until the tavern
+  // gives them somewhere better to wait (registerDockFail sets game.dockBanned; see above).
+  if(!(game.functionUnlocks&&game.functionUnlocks.tavern)){
+    const banned=game.dockBanned||{};met=met.filter(k=>!banned[k]);
+  }
+  if(!met.length)return;                                            // nobody knows your address yet, or everyone who does is sitting out the ban
   const per=window.__dockPer||140,cyc=(T/per)|0,ph=(T/per)%1;
   const sp=SPECIES.find(x=>x.key===met[cyc%met.length]);if(!sp)return;
   if(ph>0.7){surf._dockV=null;return;}
@@ -4808,10 +5660,17 @@ function drawDockVisit(dt){
       // the moment someone actually joins (see dockVisitorAct).
       const recall=game.dockRecall&&game.dockRecall[sp.key]&&T>=game.dockRecall[sp.key];
       surf._dockV={fr,face:0,mood:0,spi:SPECIES.indexOf(sp),spk:sp.key,cyc,
-        offer:recall||ihash((cyc*97+3)>>>0)<0.22,offered:false};
+        offer:recall||ihash((cyc*97+3)>>>0)<0.22,offered:false,
+        manifest:genManifest(sp,cyc),traded:false};   // M5 -- the seeded two-good manifest for this visit
       toast('a '+sp.name+' trader sets down at your dock',3);}
     drawCivFolk(surf._dockV);}
-  else surf._dockV=null;}
+  else{
+    // M5 -- the visit is ending (ship leaving the pad or never got here this frame): a visitor who was
+    // shown but never traded and never had a join offer counts as a strike against their species.
+    // simplification: any visit that ends with nothing traded counts as a strike, whether or not
+    // a join offer was also on the table this cycle -- keeps the rule to the one thing the doc names.
+    if(surf._dockV&&!surf._dockV.traded)registerDockFail(surf._dockV.spk);
+    surf._dockV=null;}}
 function dockVisitorAct(){                                          // F at the dock visitor: trade — and sometimes, a request
   const v=surf._dockV;if(!v||!onFoot)return false;
   const dpp=Math.max(-1,Math.min(1,vdot(v.fr.d,surf.botF.d)));
@@ -4837,8 +5696,9 @@ function dockVisitorAct(){                                          // F at the 
     if(game.dockRecall)delete game.dockRecall[sp.key];   // SHIPTOWN Run 2 — the species' recall flag is spent the moment someone new actually joins
     saveSlot();
     toast('✦ '+nm+' joins your village. raise a shelter and they will keep it',5);
+    typeof achieve==='function'&&achieve('first_town');typeof sfx==='function'&&sfx('ui_confirm');
     placeRockBuilds();return true;}
-  openTrade(v.spi);civLearn(sp.key,2);return true;}
+  openTrade(v.spi,v.manifest);civLearn(sp.key,2);return true;}
 
 
 // ═══ COMIC BUBBLES — space dialogue pops as panels over the void, tail pointed at the speaker. ═══
@@ -5124,7 +5984,7 @@ function walkMyRockCore(){
   try{landOn({A:{sys},e:{p,wx:w[0],wy:w[1],wz:w[2]},sx:W/2,sy:H/2});}catch(e){toast('could not board your rock');return;}
   if(ap&&ap.vi!=null&&!ap.orb){autopilot=ap;surf._transit=true;surf._transitArrived=false;   // the rock FLIES ITSELF while you walk it
     toast('cruising — walk your rock while she flies; the sky will keep moving',4);}
-  surf.name=(game.craft&&game.craft.name)||'your rock';surf.isRock=true;surf.shape=game.craft.shape;
+  surf.name=game.rockName||(game.craft&&game.craft.name)||'your rock';surf.isRock=true;surf.shape=game.craft.shape;   // S4 hook (per Lane C): a chosen rock name cascades to the HUD title/status line for free
   // your rock is HOME, not a place to strip-mine or meet strangers — no matter deposits, no fauna, no settlers, no ruins
   surf.deps=[];surf.fauna=[];surf.settlers=[];surf.pois=[];
   rockTerrain();   // shape the land to the chosen world-type — mountains, crags, forest, crater fields, all in our style
@@ -5138,6 +5998,23 @@ function walkMyRockCore(){
     const u=surf.shipF.d,vd=surf.villageDir,dot=vd[0]*u[0]+vd[1]*u[1]+vd[2]*u[2];
     const f=vnorm([vd[0]-u[0]*dot,vd[1]-u[1]*dot,vd[2]-u[2]*dot]);surf.shipF.f=f;surf.shipF.r=vcross(f,u);}
   rockHarvest();       // your cohort gathered matter while you were away
+  // STEAM P1 (docs/STEAM_REVIEW.md P1) — THE SECOND TEACH: the tutorial covers gather→beacon→board→lift
+  // and never mentions the Hold, the Cradle, or the town (they don't exist yet on the tutorial world).
+  // walkMyRockCore is the ONLY path back onto your own rock (every "return home" is a fresh rebuild off
+  // your craft, not a persisted world), so the first time you're back here with the tutorial done is
+  // exactly the moment to say the rest, once, diegetically — a note at the hearth, and (if you brought
+  // someone with you) they head for the Cradle to wait, the crew-gesture teacher the review asked for.
+  if(!game.taught2&&!game.tut){
+    game.taught2=true;
+    game._teach2Wait=!!(game.crew&&game.crew.length);           // fresh for exactly this landing — cleared on liftoff (10d finishLift)
+    const hb=findBuild('hearth');
+    const note={name:'the hearth',alien:null,
+      text:"the room by the engine is the hold. the small ship sleeps on the cradle. the rest you build.",
+      homeD:hb?hb.d.slice():null,t:Date.now(),teach:true};
+    game.letters=game.letters||[];game.letters.push(note);if(game.letters.length>40)game.letters=game.letters.slice(-40);
+    saveSlot();
+    if(typeof showLetterCard==='function')showLetterCard(note);
+  }
   {const bd=surf.shipF.d,[t1,t2]=tanBasis(bd);                              // a high, warm daytime sun over your shoulder — lit green ground, no blowout
    surf.sunL=vnorm([bd[0]*0.6+t1[0]*0.55+t2[0]*0.2,bd[1]*0.6+t1[1]*0.55+t2[1]*0.2,bd[2]*0.6+t1[2]*0.55+t2[2]*0.2]);surf.sunL0=surf.sunL.slice();surf.dayT0=T;}
   gz=0;surf._autoExit=true;                                                // ride the normal descent straight down; it steps you out on touchdown
@@ -5351,11 +6228,22 @@ function landOn(t){
         s.fork=f;s.app=f.app||appearanceFor((((f.n||1)*2654435761)^strHash(f.title||''))>>>0);}
       else s.app=appearanceFor(seed);                      // a stranger who stopped — dressed like no one you know
       settlers.push(s);}}
-  const sunL=vnorm([sys.star.x-t.e.wx,sys.star.y-t.e.wy,(sys.star.z-t.e.wz)*0.4]);
   // the world TURNS: a seeded spin axis + the sun sweeping around it = real day/night. The terrain
   // stays fixed in world space and the sun moves instead — same physics, none of the churn.
   const sa1=ihash((seed*7+1)>>>0)*6.283,sb1=Math.acos(ihash((seed*13+5)>>>0)*1.4-0.7);
   const spinAxis=[Math.sin(sb1)*Math.cos(sa1),Math.sin(sb1)*Math.sin(sa1),Math.cos(sb1)];
+  // F3 — every arrival gets a full day: local time at touchdown is set to just after dawn, sun low
+  // and RISING (never left to the luck of your approach angle). `e` is the tangent at the landing
+  // point the sun climbs along as the world turns (perpendicular to both the ground and the spin
+  // axis) — seating sunL mostly on `e` with a small positive lift toward `app` guarantees the dawn
+  // is both low (small dot with the ground) and climbing (its derivative under the frame's own
+  // vrot(sunL0,spinAxis,theta) update is app·(spinAxis×e), which this construction keeps positive).
+  let dawnE=vcross(app,spinAxis);const dawnEm=Math.hypot(dawnE[0],dawnE[1],dawnE[2])||1e-4;
+  dawnE=[dawnE[0]/dawnEm,dawnE[1]/dawnEm,dawnE[2]/dawnEm];
+  const DAWN_ELEV=0.12;
+  const sunL=vnorm([app[0]*Math.sin(DAWN_ELEV)+dawnE[0]*Math.cos(DAWN_ELEV),
+    app[1]*Math.sin(DAWN_ELEV)+dawnE[1]*Math.cos(DAWN_ELEV),
+    app[2]*Math.sin(DAWN_ELEV)+dawnE[2]*Math.cos(DAWN_ELEV)]);
   // if this world has a ring, its plane has a fixed POLE — tilt it off the landing spot so the ring
   // arcs across the sky (and shifts believably as you walk to a new latitude).
   // a modest tilt off the local up seats the ring as a broad arch across the mid sky, where the
@@ -5401,6 +6289,10 @@ function landOn(t){
     sunD:Math.hypot(sys.star.x-t.e.wx,sys.star.y-t.e.wy)||1,sunL,sunL0:sunL.slice(),spinAxis,dayT0:T,
     shipF,camP:0.2,
     back:{x:t.e.wx+(ship.x-t.e.wx)*2.6,y:t.e.wy+(ship.y-t.e.wy)*2.6,z:t.e.wz+(ship.z-t.e.wz)*2.6,yaw:ship.yaw,pitch:ship.pitch}};
+  // handoffs (Lane C, S1) — guarded, land regardless of whether storyBeat/forkLandingLine have landed yet
+  typeof storyBeat==='function'&&!surf.isRock&&storyBeat('first_foreign_landing');
+  typeof achieve==='function'&&!surf.isRock&&achieve('first_landing');
+  {const fkl=typeof forkLandingLine==='function'?forkLandingLine(surf.vi):null;if(fkl)toast(fkl,5);}
   // ── GEOLOGICAL REALITY EDITS THE LIFE: one pass at landing, against the real terrain heights.
   // Below the waterline plants drown (only true water plants stay); the shore band turns growth into
   // reeds and cattails, so the waterline reads as a waterline; past the snowline only frost tufts,
@@ -5505,7 +6397,8 @@ function landOn(t){
 function launchRock(){if(!surf||surf.lift)return;
   bot.hover=false;
   if(onFoot){surf.shipF={d:surf.botF.d.slice(),f:surf.botF.f.slice(),r:surf.botF.r.slice()};onFoot=false;}
-  surf.lift={t:0};thrusting=true;burst(surf.botF.d,sphHv(surf.botF.d),22,4,surf.ramp[0],0.9,7);shake(0.8);}
+  surf.lift={t:0};thrusting=true;burst(surf.botF.d,sphHv(surf.botF.d),22,4,surf.ramp[0],0.9,7);shake(0.8);
+  typeof sfx==='function'&&sfx('engine');typeof achieve==='function'&&achieve('first_flight');}
 // THE ENGINE, built into your rock — a big rocket structure you can walk up to, standing on the surface.
 // It IS the way home: fire it and the whole rock lifts into the galaxy. (No phantom lander, no "liftoff
 // from a planet" — the rock is the ship, and this is its drive, diegetic and attached.)
@@ -5651,6 +6544,11 @@ function generateWants(sp,seed){
   // along so wantIcon/wantProse can name the exact material without a second lookup at render time.
   const homeArch=CIVARCH[sp.arch];
   if(homeArch&&homeArch.mat)wants.push({axis:'home',want:'own-culture',tol:0,mat:homeArch.mat});
+  // STEAM P4 (docs/STEAM_REVIEW.md P4) — the SCHOOL function-unlock (rockHarvest, 10d) widens every
+  // townie's tolerance by +1, applied once to whoever's already here; wiring it in here too means every
+  // recruit who joins AFTER the school opens starts with the same wider tolerance, not just the ones
+  // who were around for the retroactive bump.
+  if(game.functionUnlocks&&game.functionUnlocks.school)for(const w of wants)w.tol=(w.tol||0)+1;
   if(!surf||!surf.isRock)return wants;                                // off-rock roll (at the dock, geometry known) — ship as-is otherwise
   const cand=[];
   if(surf.builds)for(const b of surf.builds)if(b.kind==='shelter')cand.push(b.d);
@@ -5674,6 +6572,41 @@ function wantIcon(w){
   if(w.axis==='nearSpecies')return '◆kin';
   if(w.axis==='farSpecies')return '◇kin';
   return (w.want==='high'?'+':'−')+(WANT_AXES_ICON[w.axis]||'?');
+}
+// ═══ STEAM P3 (docs/STEAM_REVIEW.md P3) — a real reachability check for the cross-world refines (01b's
+// echofuse/voidweave), mirroring the Forgestone lesson in 09b-cradle-surfswap.js ("simulate, don't
+// assume") instead of trusting the odds. Reads the SAME sysFor()/cultureMatFor()/strangeOf() the game
+// itself places deposits with — not a re-implementation. A coarse, optimistic type-level probe (a
+// world's TYPE determines which axis cultureMatFor can ever return for it; the per-world liq/ridgeAmp
+// roll only narrows WHICH deposit on a world of that type, never whether the type-class can carry
+// one), so this answers "does at least one world of the right CLASS exist" rather than walking every
+// world's own roll — cheap enough to run any time, callable from the dev cabin or the console as
+// verifyRefineSourcing(). An offline 200-seed Monte Carlo against the same formulas (see the P3 lane
+// report) came back 200/200 for both recipes; this is the live, per-seed version of that same
+// question, kept around rather than assumed forever. ═══
+function refineSourceableMats(){
+  const have={};
+  for(let vi=0;vi<vox.length;vi++){
+    const v=vox[vi];if(!v||!v.pri)continue;
+    const sys=sysFor(vi);
+    for(const p of sys.planets){
+      if(!LANDABLE[p.ty])continue;
+      if(strangeOf(v.x,v.y,v.z)>0.72){have.voidlattice=true;continue;}
+      if(p.ty==='icy')have.bluecore=true;
+      else if(p.ty==='rocky'){have.forgestone=true;have.caironiron=true;have.cutstone=true;}
+      else if(p.ty==='living'){have.reedfiber=true;have.pearlchitin=true;have.sporewood=true;}
+    }
+  }
+  return have;
+}
+function verifyRefineSourcing(){
+  const have=refineSourceableMats(),report={};
+  for(const rk of ['echofuse','voidweave']){
+    const rec=REFINE_RECIPES[rk];if(!rec)continue;
+    const missing=Object.keys(rec.in).filter(k=>!have[k]);
+    report[rk]=missing.length?{ok:false,missing}:{ok:true};
+  }
+  return report;
 }
 function wantProse(w){
   // TOWN ERA Run 2 (docs/TOWN_ERA.md §2) — the newcomer effectively tells you what their home needs:
@@ -5734,12 +6667,16 @@ function infraBuilt(kind){
 // engine upgrade tiers, primary driver of townCap()" ruling. Same tier shape as every other building
 // (0..2, gated on refined-goods spend), just costed a size up — it's the one monument on the rock, not
 // a hut, and it's what townCap() (below) reads first.
+// STEAM P3 (docs/STEAM_REVIEW.md P3) — tier 3 on the engine/hearth/workshop now asks for one of the
+// two cross-world refines (echofuse, voidweave — see 01b's REFINE_RECIPES) alongside the existing
+// goods: a real dependency on ROUTE PLANNING across two world classes, not a bigger pile of the same
+// thing. Reachability simulated (both recipes) at 200/200 seeds before this shipped.
 const INFRA_UPGRADES={
-  engine:  {label:'ENGINE',   tiers:[{cairnframe:3,hearthglass:2},{cairnframe:4,thatch:3,hearthglass:3}]},
-  hearth:  {label:'HEARTH',   tiers:[{thatch:2},{hearthglass:2}]},
+  engine:  {label:'ENGINE',   tiers:[{cairnframe:3,hearthglass:2},{cairnframe:4,thatch:3,hearthglass:3,voidweave:1}]},
+  hearth:  {label:'HEARTH',   tiers:[{thatch:2},{hearthglass:2,echofuse:1}]},
   well:    {label:'WELL',     tiers:[{hearthglass:2},{thatch:3}]},
   garden:  {label:'GARDEN',   tiers:[{thatch:2},{cairnframe:2}]},
-  workshop:{label:'WORKSHOP', tiers:[{cairnframe:2},{cairnframe:3}]},
+  workshop:{label:'WORKSHOP', tiers:[{cairnframe:2},{cairnframe:3,voidweave:1}]},
   tavern:  {label:'TAVERN',   tiers:[{cairnframe:2},{hearthglass:3}]}};
 const INFRA_ORDER=['engine','hearth','well','garden','workshop','tavern'];
 const INFRA_DESC={
@@ -5768,6 +6705,12 @@ function upgradeInfra(kind){
   game.goods=game.goods||{};for(const gk in cost)game.goods[gk]-=cost[gk];
   game.infraTier=game.infraTier||{};game.infraTier[kind]=cur+1;
   recomputeAllSatisfaction();                                                    // warmthAt/beautyAt just changed for every candidate home
+  if(typeof sfx==='function')sfx('tier');
+  // STEAM S1/P1 hook (docs/STEAM_REVIEW.md) — the engine reaching tier 2 (1-based; game.infraTier
+  // index 1) is the doc's own "a letter in the Hold once the town hits tier 2" beat; Story-lane owns
+  // what storyBeat('hold_letter') actually does, this just fires it at the right moment (per Lane C).
+  if(kind==='engine'&&game.infraTier[kind]===1&&typeof storyBeat==='function')storyBeat('hold_letter');
+  if(cur+1>=U.tiers.length&&!game._firstTier3){game._firstTier3=true;if(typeof achieve==='function')achieve('tier3');}
   saveSlot();
   if(surf&&surf.isRock){placeRockBuilds();if(onFoot&&surf.botF)rockCollide(surf.botF);}
   toast('✦ the '+U.label.toLowerCase()+' rises to tier '+(cur+2),4);
@@ -5825,11 +6768,30 @@ const DEPARTURE_LETTERS={
         "wrote that a season alone was long enough. gone to find the rest of them."],
  farSpecies:["left saying their own kind crowded them worse than strangers ever could.",
         "wrote that the distance mattered more than the company. took both, in the end."]};
+// ═══ STEAM P4 (docs/STEAM_REVIEW.md P4) — ELDER LETTERS: the departure-letter machinery, reversed.
+// A townie who has thrived long enough writes a letter too, but they don't leave — the letter STAYS
+// (game.letters keeps it, kind:'elder' so a caller can tell it apart from a departure or the town-
+// complete letter). Same flat register, four lines, no per-axis lookup — nobody left over an unmet
+// want, so there's no "worst want" to name. ═══
+const ELDER_LETTERS=[
+ "wrote it down anyway. the roof holds, the well still gives, and they mean to stay.",
+ "left a letter by their own door instead of leaving it behind them. the ground stopped feeling like somebody else's a while back.",
+ "nothing to report except that it's still good here. wanted that on the record before someone forgot to ask.",
+ "stopped counting the seasons a while ago. it stopped being new somewhere around the third roof."];
+function elderLetter(c,sp){
+  const line=ELDER_LETTERS[(Math.random()*ELDER_LETTERS.length)|0];
+  const name=typeof c.n==='string'?c.n:(c.title||'someone');
+  return (sp?('the '+sp.name.replace(/^the /,'')+' named '+name):name)+' '+line;
+}
 function departureLetter(c,sp){
   const wants=c.wants||[];let worst=null,worstS=2;
   for(const w of wants){const s=scoreWant(w,c.home,-1);if(s<worstS){worstS=s;worst=w;}}
   const axis=worst?worst.axis:'view',pool=DEPARTURE_LETTERS[axis]||DEPARTURE_LETTERS.view;
-  let line=pool[(Math.random()*pool.length)|0];
+  // STEAM S5 hook (docs/STEAM_REVIEW.md S5, per Lane C) — tide-folk leave with their own voice
+  // (SPECIES_LETTERS.tidefolk) when Story-lane has landed it; everyone else keeps the axis pool above.
+  let line=(sp&&sp.key==='tidefolk'&&typeof SPECIES_LETTERS!=='undefined'&&SPECIES_LETTERS.tidefolk)
+    ?SPECIES_LETTERS.tidefolk[(Math.random()*SPECIES_LETTERS.tidefolk.length)|0]
+    :pool[(Math.random()*pool.length)|0];
   if(worst&&(axis==='nearKind'||axis==='farKind'))line=line.split('{want}').join(worst.want);
   const name=typeof c.n==='string'?c.n:(c.title||'someone');
   return (sp?('the '+sp.name.replace(/^the /,'')+' named '+name):name)+' '+line;
@@ -5889,6 +6851,38 @@ function tickBonds(){
     } else game.bondProg[key]=0;
   }
   return any;
+}
+// ═══ STEAM P4 (docs/STEAM_REVIEW.md P4) — BIRTHS: two BONDED crew who both sustain satisfaction (the
+// same >=0.7 bar the thrive ratchet reads) for BIRTH_TICKS landings in a row produce a newcomer, born
+// into a free plot if one exists (townCap() has room). Same trigger-not-tick cadence as tickBonds, run
+// right after it from rockHarvest so ids/bonds are current. Species is one parent's (whichever parent
+// is alien; a human-fork pairing has a human-fork child); wants generated the normal way through
+// ensureCrewWants, same as any other new crew record. One birth per landing — plenty for a rock. ═══
+const BIRTH_TICKS=3;
+function tickBirths(){
+  const crewL=game.crew||[];game.birthProg=game.birthProg||{};
+  if(crewL.length>=townCap())return false;                          // no free plot yet
+  for(let i=0;i<crewL.length;i++)for(let j=i+1;j<crewL.length;j++){
+    const a=crewL[i],b=crewL[j];
+    if(!a.id||!b.id||!a.bonds||!a.bonds.includes(b.id))continue;     // must already be bonded
+    const key=a.id<b.id?a.id+'|'+b.id:b.id+'|'+a.id;
+    const both=(a.satisfaction||0)>=0.7&&(b.satisfaction||0)>=0.7;
+    if(!both){game.birthProg[key]=0;continue;}
+    game.birthProg[key]=(game.birthProg[key]||0)+1;
+    if(game.birthProg[key]>=BIRTH_TICKS){
+      delete game.birthProg[key];
+      const parentSp=a.alien||b.alien||null,sp=parentSp?SPECIES.find(x=>x.key===parentSp):null;
+      const nm=(sp?sp.name.replace('the ','')+' ':'')+['Ash','Reed','Tide','Kel','Vor','Mim'][(Math.random()*6)|0];
+      const child={n:nm,alien:parentSp,satisfaction:0,bonds:[],home:null,mood:2,sulkT:0,thrive:0,thriveT:0,homeCult:false,seed:(Math.random()*1e9)|0};
+      ensureCrewWants(child);                                        // generates wants the normal way — same path every other new crew record takes
+      game.crew.push(child);
+      const an=typeof a.n==='string'?a.n:(a.title||'someone'),bn=typeof b.n==='string'?b.n:(b.title||'someone');
+      toast('a small one arrived at '+an+' and '+bn+"'s door",5);
+      if(typeof sfx==='function')sfx('build');
+      return true;
+    }
+  }
+  return false;
 }
 function nearbyIncompatible(cw){
   const crewL=game.crew||[];
@@ -5969,6 +6963,17 @@ function placeRockBuilds(){
    const az=3.6,arcT=8.5/R,ca=Math.cos(arcT),sa=Math.sin(arcT),cz=Math.cos(az),szn=Math.sin(az);
    const d=flatSpot(vnorm([up[0]*ca+(e1[0]*cz+e2[0]*szn)*sa,up[1]*ca+(e1[1]*cz+e2[1]*szn)*sa,up[2]*ca+(e1[2]*cz+e2[2]*szn)*sa]),R);
    surf.builds.push({kind:'tavern',d,seed:(GSEED^0x7A5E54)>>>0,mat:null});}
+  // ── STEAM P4 (docs/STEAM_REVIEW.md P4) — TWO MORE FUNCTION UNLOCKS, the tavern's exact pattern: own
+  // azimuth, clear of hearth/hold/cradle/dock/tavern, placed unconditionally once its unlock flag is
+  // set. The school (a thriving glasseyes) and the observatory (a thriving prisms) — see rockHarvest. ──
+  if(game.functionUnlocks&&game.functionUnlocks.school){
+   const az=4.4,arcS=8.3/R,ca=Math.cos(arcS),sa=Math.sin(arcS),cz=Math.cos(az),szn=Math.sin(az);
+   const d=flatSpot(vnorm([up[0]*ca+(e1[0]*cz+e2[0]*szn)*sa,up[1]*ca+(e1[1]*cz+e2[1]*szn)*sa,up[2]*ca+(e1[2]*cz+e2[2]*szn)*sa]),R);
+   surf.builds.push({kind:'school',d,seed:(GSEED^0x5C4001)>>>0,mat:null});}
+  if(game.functionUnlocks&&game.functionUnlocks.observatory){
+   const az=0.3,arcOb=8.2/R,ca=Math.cos(arcOb),sa=Math.sin(arcOb),cz=Math.cos(az),szn=Math.sin(az);
+   const d=flatSpot(vnorm([up[0]*ca+(e1[0]*cz+e2[0]*szn)*sa,up[1]*ca+(e1[1]*cz+e2[1]*szn)*sa,up[2]*ca+(e1[2]*cz+e2[2]*szn)*sa]),R);
+   surf.builds.push({kind:'observatory',d,seed:(GSEED^0x0B5000)>>>0,mat:null});}
   // ── ENGINE CLEARANCE — a build whose center lands inside ENGINE_BASE_RAD (the dense monument's real
   // footprint, bumped up from an old undersized 3.9 — see the comment on push() below) is a building
   // nobody can stand at: the engine's own push shoves you back out before you ever reach its door. Every
@@ -5982,7 +6987,7 @@ function placeRockBuilds(){
   // 0.5*R on a small rock (see cArc above) — this is the backstop for both. ──
   {const buildHalfW=b=>b.kind==='shelter'?(b.form===2?1.9:2.5):b.kind==='well'?2.2:b.kind==='workshop'?1.3:
       b.kind==='hearth'?1.4:(b.kind==='cradle'||b.kind==='dock')?CRADLE_RAD:b.kind==='tavern'?1.5:
-      b.kind==='hold'?HOLD_RAD:1.4;
+      b.kind==='hold'?HOLD_RAD:b.kind==='school'?1.3:b.kind==='observatory'?0.6:1.4;
    for(const bb of surf.builds){
      const minArc=ENGINE_BASE_RAD+buildHalfW(bb)+2;
      const dot=Math.max(-1,Math.min(1,vdot(up,bb.d))),curArc=Math.acos(dot)*R;
@@ -6031,6 +7036,19 @@ function placeRockBuilds(){
     surf.residents.push({fr,alien:f.alien||null,crewI:cIdx,app:f.app||appearanceFor((((f.n||hi)*2654435761)>>>0)),home:bb.d,
       face:0,mood:0,moodT:rf(2,6),tgt:null,tgtT:rf(1,5),vel:0,scale:rf(0.82,1.05),
       spots:spots.length?spots.concat([bb.d]):[bb.d]});}
+  // STEAM P1 (docs/STEAM_REVIEW.md P1) — THE SECOND TEACH's crew gesture: while game._teach2Wait is
+  // fresh (set once, in walkMyRockCore, the first landing back with the tutorial done), crew[0] heads
+  // for the Cradle and waits there — whether or not they have a home built yet, so the gesture reads
+  // even on a bare rock. Skipped if crew[0] already got a housed resident entry above (crewI===0).
+  if(game._teach2Wait&&crewL.length&&!surf.residents.some(rz=>rz.crewI===0)){
+    const cb=surf.builds.find(bx=>bx.kind==='cradle');
+    if(cb){
+      const f0=crewL[0],startD=surf.shipF.d,t1s=tanBasis(startD)[0];
+      const fr0={d:startD.slice(),f:t1s.slice(),r:vcross(t1s,startD)};orthon(fr0);
+      surf.residents.push({fr:fr0,alien:f0.alien||null,crewI:0,app:f0.app||appearanceFor((((f0.n||1)*2654435761)>>>0)),
+        home:null,face:0,mood:2,moodT:999,tgt:cb.d,tgtT:999,vel:0,scale:rf(0.82,1.05),spots:[cb.d]});
+    }
+  }
   recomputeAllSatisfaction();                               // SHIPTOWN: trigger, not tick — fires here on every landing/recruit/build change (all three route through this function)
   // ═══ SHIPTOWN Run 4 — BOND PATHS: fed into the exact same paths[] array the engine-to-every-build
   // loop above just finished filling (doc §2: "feed the same paths[] array one more entry" — reusing
@@ -6044,13 +7062,29 @@ function placeRockBuilds(){
        const dot=Math.max(-1,Math.min(1,vdot(c.home,o.home)));
        if(Math.acos(dot)*R<3.0)continue;                        // their yards already touch — no separate track needed
        surf._yard.paths.push({n:vnorm(vcross(c.home,o.home)),m:vnorm([c.home[0]+o.home[0],c.home[1]+o.home[1],c.home[2]+o.home[2]]),cosH:Math.cos(Math.acos(dot)*0.5)});}}}
+  // ═══ STEAM F5 (docs/STEAM_REVIEW.md F5) — WORN PATHS TO WHERE YOU ACTUALLY GO: game.visits is a
+  // plain {kind:count} tally other lanes increment at footAct/cradleBoardAct (HANDOFF — see the lane
+  // report; holdPropAct below increments its own since it's in this same chunk). Ranks the three build
+  // KINDS you visit most and wears a path in from the hearth to one instance of each — same worn-ground
+  // paths[] array the engine-to-every-build and bond-path loops above already feed. ═══
+  {const hb2=surf.builds.find(bx=>bx.kind==='hearth');
+   if(hb2&&game.visits){
+     const top3=Object.keys(game.visits).filter(k=>k!=='hearth'&&game.visits[k]>0)
+       .sort((a,b)=>(game.visits[b]||0)-(game.visits[a]||0)).slice(0,3);
+     for(const k of top3){
+       const target=surf.builds.find(bx=>bx.kind===k);if(!target)continue;
+       const dot=Math.max(-1,Math.min(1,vdot(hb2.d,target.d)));
+       if(Math.acos(dot)*R<3.0)continue;
+       surf._yard.paths.push({n:vnorm(vcross(hb2.d,target.d)),m:vnorm([hb2.d[0]+target.d[0],hb2.d[1]+target.d[1],hb2.d[2]+target.d[2]]),cosH:Math.cos(Math.acos(dot)*0.5)});
+     }
+   }}
 }
 // SOLID GROUND RULES — you can't walk through a building. A gentle push keeps you at each solid's edge
 // (gardens you can wade through; the workshop's arch you can duck under close, just not through the anvil).
 function rockCollide(fr){
   if(!surf||!surf.isRock)return;
   const R=surf.R;
-  const radFor=b=>b.kind==='shelter'?(b.form===2?1.9:2.5):b.kind==='well'?2.2:b.kind==='workshop'?1.3:b.kind==='hearth'?1.4:b.kind==='cradle'?CRADLE_RAD:b.kind==='tavern'?1.5:b.kind==='homestead'?1.3:0;
+  const radFor=b=>b.kind==='shelter'?(b.form===2?1.9:2.5):b.kind==='well'?2.2:b.kind==='workshop'?1.3:b.kind==='hearth'?1.4:b.kind==='cradle'?CRADLE_RAD:b.kind==='tavern'?1.5:b.kind==='homestead'?1.3:b.kind==='school'?1.3:b.kind==='observatory'?0.6:0;
   const push=(d,RAD)=>{
     const dot=Math.max(-1,Math.min(1,vdot(fr.d,d))),arc=Math.acos(dot)*R;
     if(arc>=RAD)return;
@@ -6092,6 +7126,9 @@ function holdPropAct(){
     const pd=holdPropD(hb,HOLD_PROPS[key]);
     const arc=Math.acos(Math.max(-1,Math.min(1,vdot(pd,bd))))*R;
     if(arc<1.0){                                                            // tight enough that the three catchments (spaced >1.5 apart) never overlap
+      // STEAM F5 (docs/STEAM_REVIEW.md F5) — count this visit toward the worn-paths tally (see
+      // placeRockBuilds' WORN PATHS TO WHERE YOU ACTUALLY GO block, above).
+      game.visits=game.visits||{};game.visits.hold=(game.visits.hold||0)+1;
       // TOWN ERA Run 4 — the chart table used to call toggleMap(), which is a hard no-op whenever
       // mode==='surface' (its own first line: `if(mode==='surface')return;`) — always true here, since
       // you're standing in the Hold. That dead binding is now VIEW FROM ORBIT, the globe build view.
@@ -6256,12 +7293,17 @@ function buildRockVox(b,tier,housed){
     if(infraT>=1)for(let alt=0;alt<=1.0;alt+=stl)put(-1.35,0,alt,C.silver);
     if(infraT>=2)for(let a=0;a<6.283;a+=0.5)put(Math.cos(a)*1.55,Math.sin(a)*1.55,1.25,C.amber);
   }else if(b.kind==='hearth'){                                                 // YOUR HOME — a lean-to, a bedroll, a fire ring, your banner
+    // STEAM F5 (docs/STEAM_REVIEW.md F5) — the forge's hull choice (game.craft.shape, via CIVARCH's
+    // new 'drifter' arch) becomes the roof's own material, same as any alien home reads its arch's mat.
+    const dm=drifterArchMat();
     for(const pv of [-0.9,0.9])for(let alt=-0.3;alt<=1.15;alt+=stl)put(-0.9,pv,alt,C.steel);   // the posts
-    for(let u=-0.95;u<=0.65;u+=stl)for(let v=-1.05;v<=1.05;v+=stl)put(u,v,1.15-(u+0.95)*0.5,moss(u,v,5,dap(u,v,5)<0.12?dark2(C.deep):C.deep,0.34));   // the slanted roof, mossing over
+    for(let u=-0.95;u<=0.65;u+=stl)for(let v=-1.05;v<=1.05;v+=stl)put(u,v,1.15-(u+0.95)*0.5,moss(u,v,5,dap(u,v,5)<0.12?dm[0]:dm[1],0.34));   // the slanted roof, mossing over
     for(let u=-0.72;u<=0.12;u+=stl)for(let v=-0.5;v<=0.25;v+=stl)put(u,v,0.1,dap(u,v,2)>0.5?shellSet()[0]:C.bone);   // your bedroll, in your shell's colours
     for(let th=0;th<6.283;th+=stl/0.5)put(1.35+Math.cos(th)*0.5,Math.sin(th)*0.5,0.04,dark2(C.steel));               // the fire ring
     for(let alt=0;alt<=2.1;alt+=stl)put(0.9,-1.15,alt,C.silver);                                                     // the banner pole
-    for(let fu=0.06;fu<=0.6;fu+=stl)for(let fa=1.6;fa<=2.05;fa+=stl)put(0.9+fu,-1.15,fa,fu>0.32?shellSet()[3]:shellSet()[0]);   // your colours, flying
+    // STEAM F5 — the banner takes the engine's own color (eng, already resolved above from
+    // game.craft.engine) instead of the flying shell's tint — it's the ROCK's banner, not the ship's.
+    for(let fu=0.06;fu<=0.6;fu+=stl)for(let fa=1.6;fa<=2.05;fa+=stl)put(0.9+fu,-1.15,fa,fu>0.32?eng.c[2]:eng.c[1]);   // your engine's colours, flying
     smokeAt=[1.35,0,0.5];
     // TOWN ERA Run 3 — tier 2 warm stones ringing further out (the widened warmthAt radius, above);
     // tier 3 the hearth-fed brazier, a second lit point (the flat warmth bonus, also warmthAt).
@@ -6343,15 +7385,31 @@ function buildRockVox(b,tier,housed){
       for(let a=0;a<6.283;a+=0.4){const rr=1.5+ir()*0.3;put(Math.cos(a)*rr,Math.sin(a)*rr,0.08,C.amber);}}
   }
   else if(b.kind==='homestead'){                                    // THE HOMESTEAD — small and final: a low cairn hut, a banner planted for good, not flying
+    // STEAM F5 — the same drifter arch material as the hearth's roof, so the homestead reads as the
+    // SAME drifter's building, not a second, unrelated one.
+    const dm2=drifterArchMat();
     for(let th=0;th<6.283;th+=stl/0.9){const u=Math.cos(th)*1.05,v=Math.sin(th)*1.05,h=dap(u,v,1);
-      for(let alt=-0.3;alt<=0.55;alt+=stl)put(u,v,alt,alt<0?dark2(C.steel):moss(u,v,alt,h>0.82?C.silver:C.steel,0.3));}   // the low ring wall
+      for(let alt=-0.3;alt<=0.55;alt+=stl)put(u,v,alt,alt<0?dm2[0]:moss(u,v,alt,h>0.82?dm2[2]:dm2[1],0.3));}   // the low ring wall
     for(let a=0;a<6.283;a+=stl/0.7)for(let e=0.1;e<1.0;e+=stl/0.7){                                   // the cairn dome, capping it
       const cu=Math.cos(e),u=Math.cos(a)*0.85*cu,v=Math.sin(a)*0.85*cu,alt=0.55+Math.sin(e)*0.75;
-      put(u,v,alt,dap(u,v,alt)>0.85?C.silver:dark2(C.steel));}
+      put(u,v,alt,dap(u,v,alt)>0.85?dm2[2]:dm2[0]);}
     put(0,0,1.35,trim);                                                                               // the marker light on top, lit in the matter it cost
     for(let alt=0;alt<=1.6;alt+=stl)put(1.15,-1.15,alt,C.steel);                                      // the banner pole, planted, not flying
-    for(let fu=0.06;fu<=0.5;fu+=stl)for(let fa=1.15;fa<=1.55;fa+=stl)put(1.15+fu,-1.15,fa,fu>0.28?shellSet()[3]:shellSet()[0]);   // your colours, staying put
+    for(let fu=0.06;fu<=0.5;fu+=stl)for(let fa=1.15;fa<=1.55;fa+=stl)put(1.15+fu,-1.15,fa,fu>0.28?eng.c[2]:eng.c[1]);   // your engine's colours, staying put
     smokeAt=[0,0,1.6];
+  }
+  else if(b.kind==='school'){                                       // STEAM P4 — a low dais ringed by six standing lesson-stones, glasseyes' own silver
+    for(let u=-1.3;u<=1.3;u+=stl)for(let v=-1.3;v<=1.3;v+=stl){const q9=Math.hypot(u,v);
+      if(q9>1.3)continue;put(u,v,0.1,q9>1.05?dark2(C.steel):(dap(u,v,3)>0.5?C.silver:dark2(C.steel)));}
+    for(let a=0;a<6.283;a+=1.047){const cu=Math.cos(a)*1.55,su=Math.sin(a)*1.55;
+      for(let alt=0.1;alt<=1.1;alt+=stl)put(cu,su,alt,dap(cu,su,alt)>0.7?C.silver:C.steel);}
+    put(0,0,1.3,trim);
+  }
+  else if(b.kind==='observatory'){                                  // STEAM P4 — a pylon topped with a faceted lens, prisms' own crystal-and-ice
+    for(let alt=0;alt<=2.6;alt+=stl)put(0,0,alt,dap(0,0,alt)>0.6?C.silver:C.steel);
+    for(let a=0;a<6.283;a+=0.9){const cu=Math.cos(a)*0.5,su=Math.sin(a)*0.5;
+      for(let alt=2.5;alt<=3.0;alt+=stl)put(cu,su,alt,C.ice);}
+    put(0,0,3.1,trim);
   }
   // ── FOOTINGS: every base column checks the real ground under it — a gap gets a stilt down to
   // the land, a small one gets buried skirt. The platform meets the ground instead of hovering. ──
@@ -6487,6 +7545,23 @@ function drawRockBuilds(dt){
         if(onFoot&&surf.botF&&cw&&!(surf._bub&&T<surf._bub.until)){
           const ad=Math.acos(Math.max(-1,Math.min(1,vdot(rz.fr.d,surf.botF.d))))*R;
           if(ad<9&&Math.random()<0.22)ambientResidentBub(rz,cw);
+        }
+        // STEAM S2/F3 hook (docs/STEAM_REVIEW.md) — the village overhears ITSELF, not just you: when two
+        // residents pass within ~3 world units, Lane B's pairLine (species-pair dialogue bank) supplies
+        // the line. Alien-only for now, same honest gap as the duet/friction lines above (no glyph font
+        // for a fork's own ambient moment). Fires ~3x as often at night (Lane F3's day/night pacing).
+        if(rz.alien&&typeof pairLine==='function'&&!(surf._bub&&T<surf._bub.until)){
+          for(const other of surf.residents){
+            if(other===rz||other.hidden||!other.alien)continue;
+            if(Math.acos(Math.max(-1,Math.min(1,vdot(rz.fr.d,other.fr.d))))*R>3)continue;
+            const night=typeof isNight==='function'&&isNight();
+            if(Math.random()<(night?0.66:0.22)){
+              const line=pairLine(rz.alien,other.alien);   // Lane C contract: two species KEYS, not resident objects
+              if(line){const asp=SPECIES.find(x=>x.key===rz.alien);
+                surf._bub={fr:rz.fr,txt:line,spi:SPECIES.indexOf(asp),until:T+4.2,scale:asp?speciesFig(asp).scale:(rz.scale||1)};}
+            }
+            break;
+          }
         }}
       }
     }
@@ -6534,7 +7609,7 @@ function rockHarvest(){
   recomputeAllSatisfaction();
   // SHIPTOWN Run 2 — THRIVE ratchet + SULK -> DEPARTURE (dks ruling 2: real, with a letter, never cruel).
   // Backward, so splicing a departure doesn't skip the next entry.
-  const SULK_LIMIT=5,THRIVE_TICKS=3,THRIVE_CAP=3;
+  const SULK_LIMIT=5,THRIVE_TICKS=3,THRIVE_CAP=3,ELDER_TICKS=5;   // ELDER_TICKS: landings sustained AT the thrive cap (docs/STEAM_REVIEW.md P4)
   let anyDeparted=false,fnUnlocked=false;
   for(let i=(game.crew||[]).length-1;i>=0;i--){
     const c=game.crew[i];if(c.satisfaction==null)continue;
@@ -6550,6 +7625,40 @@ function rockHarvest(){
         if(c.thrive>=THRIVE_CAP&&c.alien==='reedmen'&&!(game.functionUnlocks&&game.functionUnlocks.tavern)){
           game.functionUnlocks=game.functionUnlocks||{};game.functionUnlocks.tavern=true;fnUnlocked=true;
           toast('✦ '+(typeof c.n==='string'?c.n:'someone')+"'s tavern opens its doors. the village has somewhere to gather now",6);
+        }
+        // ═══ STEAM P4 (docs/STEAM_REVIEW.md P4) — two more function unlocks, the tavern's exact
+        // pattern: the SCHOOL (a thriving glasseyes — their quirk is watching together, close enough)
+        // widens every townie's tolerance; the OBSERVATORY (a thriving prisms — the crystal-and-ice
+        // arch already reads as a lens) pins a fork's world on the chart, once Lane C's forkAtWorld
+        // exists. Placement/voxels in 10c's placeRockBuilds/buildRockVox. ═══
+        if(c.thrive>=THRIVE_CAP&&c.alien==='glasseyes'&&!(game.functionUnlocks&&game.functionUnlocks.school)){
+          game.functionUnlocks=game.functionUnlocks||{};game.functionUnlocks.school=true;fnUnlocked=true;
+          for(const cw of (game.crew||[]))if(cw.wants)for(const w of cw.wants)w.tol=(w.tol||0)+1;
+          recomputeAllSatisfaction();
+          toast('✦ '+(typeof c.n==='string'?c.n:'someone')+"'s school opens. the whole village finds it easier to be satisfied",6);
+        }
+        if(c.thrive>=THRIVE_CAP&&c.alien==='prisms'&&!(game.functionUnlocks&&game.functionUnlocks.observatory)){
+          game.functionUnlocks=game.functionUnlocks||{};game.functionUnlocks.observatory=true;fnUnlocked=true;
+          toast('✦ '+(typeof c.n==='string'?c.n:'someone')+"'s observatory opens. the chart reaches further now",6);
+          if(typeof forkAtWorld==='function'){
+            const fw=forkAtWorld();
+            if(fw&&fw.vi!=null&&chart&&chart.pins&&!chart.pins[fw.vi]){
+              chart.pins[fw.vi]='⚑ '+(fw.title||fw.name||'a fork')+' — pinned from the observatory';chartDirty=true;
+            }
+          }
+        }
+        // ═══ STEAM P4 — ELDERS: sustained thriving PAST the cap (c.thriveT keeps counting once thrive
+        // maxes out — see the guard above) writes a letter that STAYS, the departure-letter machinery
+        // reversed (elderLetter, 10b). Once per townie, ever. ═══
+        if(!c.elder&&c.thrive>=THRIVE_CAP&&c.thriveT>=ELDER_TICKS){
+          c.elder=true;
+          const esp=c.alien?SPECIES.find(x=>x.key===c.alien):null;
+          game.letters=game.letters||[];
+          game.letters.push({name:(typeof c.n==='string'?c.n:(c.title||'someone')),alien:c.alien||null,
+            text:elderLetter(c,esp),homeD:c.home?[c.home[0],c.home[1],c.home[2]]:null,t:Date.now(),kind:'elder'});
+          if(game.letters.length>40)game.letters=game.letters.slice(-40);
+          if(typeof sfx==='function')sfx('letter');
+          toast('✦ '+(typeof c.n==='string'?c.n:'someone')+' has become an elder here. their letter stays',5);
         }}
       continue;
     }
@@ -6562,6 +7671,7 @@ function rockHarvest(){
       game.letters.push({name,alien:c.alien||null,text:departureLetter(c,sp),
         homeD:c.home?[c.home[0],c.home[1],c.home[2]]:null,t:Date.now()});
       if(game.letters.length>40)game.letters=game.letters.slice(-40);
+      if(typeof sfx==='function')sfx('letter');
       if(sp){game.dockRecall=game.dockRecall||{};game.dockRecall[sp.key]=T+80;}   // their species may send someone new later
       game.crew.splice(i,1);anyDeparted=true;
       toast(name+' has left. a letter waits at their old door',5);
@@ -6571,7 +7681,10 @@ function rockHarvest(){
   // are current for this landing. placeRockBuilds (called below when anything changed) is what actually
   // draws a newly-formed bond's worn path — see its BOND PATHS block, fed from game.crew[].bonds.
   const anyBonded=tickBonds();
-  if(anyDeparted||anyBonded||fnUnlocked){saveSlot();placeRockBuilds();}   // shelters re-derive from the shrunk crew list — the empty one just opens back up; a function-unlock or new bond needs its build/path drawn
+  // STEAM P4 — BIRTHS (10b's tickBirths): same cadence, after bonds so a bond formed THIS landing can't
+  // also produce a birth the same landing (tickBirths only sees bonds that already existed).
+  const anyBorn=tickBirths();
+  if(anyDeparted||anyBonded||anyBorn||fnUnlocked){saveSlot();placeRockBuilds();}   // shelters re-derive from the shrunk crew list — the empty one just opens back up; a function-unlock, new bond or birth needs its build/path drawn
   checkTownComplete();   // TOWN ERA Run 5 — the landing tick is where "complete" gets checked (see below)
 }
 // ═══ TOWN ERA Run 5 (docs/TOWN_ERA.md §4/§6, dks ruling 4: ONE ENDGAME BEAT — quiet accumulation, then
@@ -6607,10 +7720,12 @@ function checkTownComplete(){
   game.letters=game.letters||[];
   game.letters.push({name:'the town',alien:null,text:TOWN_COMPLETE_LETTER,homeD:hb?hb.d.slice():null,t:Date.now(),complete:true});
   if(game.letters.length>40)game.letters=game.letters.slice(-40);
-  chart.pins[HOME_VI]='⚑ '+((game.craft&&game.craft.name)||'the rock')+' — complete';   // the permanent chart annotation
+  chart.pins[HOME_VI]='⚑ '+(game.rockName||(game.craft&&game.craft.name)||'the rock')+' — complete';   // the permanent chart annotation
   chartDirty=true;
   placeRockBuilds();                                     // bakes the hearth's monument marker in now that game.townComplete is true
   saveSlot();
+  if(typeof sfx==='function')sfx('letter');
+  if(typeof achieve==='function')achieve('full_sphere');
   toast('✦ the sphere is full. the whole town has turned out',6);
   if(typeof showLetterCard==='function')showLetterCard(game.letters[game.letters.length-1]);
 }
@@ -6620,14 +7735,17 @@ function tryUnlockHover(){const cost=15;
   if(matTotal()<cost){toast('build a hoverboard — '+cost+' matter (you have '+matTotal()+')',3);return;}
   let need=cost;for(const k in game.mat){if(need<=0)break;const take=Math.min(game.mat[k],need);game.mat[k]-=take;need-=take;}
   game.matter=matTotal();game.hoverUnlocked=true;bot.hover=true;bot.v=0;
+  if(typeof sfx==='function')sfx('build');
+  if(typeof achieve==='function')achieve('hoverboard');
   toast('◄► hoverboard built — H / LB to hop on and off',4);paintRes();if(mode==='surface')paintChrome();}
 function toggleHover(){
   if(mode==='rockwalk'){if(!game.hoverUnlocked){tryUnlockHover();rw.hover=game.hoverUnlocked;return;}
-    rw.hover=!rw.hover;toast(rw.hover?'◄► hoverboard — zip around':'off the board',1.5);return;}
+    rw.hover=!rw.hover;if(typeof sfx==='function')sfx(rw.hover?'board_on':'board_off');toast(rw.hover?'◄► hoverboard — zip around':'off the board',1.5);return;}
   if(mode!=='surface'||!onFoot||surf.lift)return;
   if(!game.hoverUnlocked){tryUnlockHover();return;}
   if(bot.hover&&!bot.grounded){bot._kick=(bot._kick||0)+6.283;return;}   // H mid-air doesn't bail — it kicks the board over
-  bot.hover=!bot.hover;toast(bot.hover?'◄► hoverboard — zip around':'off the board',1.5);paintChrome();}   // swap the hint bar's controls to match the board
+  bot.hover=!bot.hover;if(typeof sfx==='function')sfx(bot.hover?'board_on':'board_off');
+  toast(bot.hover?'◄► hoverboard — zip around':'off the board',1.5);paintChrome();}   // swap the hint bar's controls to match the board
 function drawHoverboard(){
   const bd=surf.botF.d,ff=surf.botF.f,fr=surf.botF.r,gh=sphHv(bd),eng=engineOf(game.craft.engine);
   // the deck only breathes when it's WORKING — parked it sits dead still, and the rider is welded
@@ -6679,6 +7797,7 @@ function globeExit(){
   gz=0;gzShown=0;gDir=null;
   surf=null;onFoot=false;autopilot=null;mode='space';setPix(4);paintChrome();}
 function finishLift(){
+  game._teach2Wait=false;   // STEAM P1 — the crew gesture is "for the rest of that landing," never again once you leave
   const d=surf.shipF.d,sz=(surf.R-24)/18;
   ship.x=surf.wx+d[0]*sz*2.6;ship.y=surf.wy+d[1]*sz*2.6;ship.z=surf.wz+d[2]*sz*2.6;
   ship.yaw=Math.atan2(d[0],d[1]);
@@ -6716,6 +7835,52 @@ function orthon(fr){fr.d=vnorm(fr.d);
   fr.f=vnorm([fr.f[0]-fr.d[0]*vdot(fr.f,fr.d),fr.f[1]-fr.d[1]*vdot(fr.f,fr.d),fr.f[2]-fr.d[2]*vdot(fr.f,fr.d)]);
   fr.r=vcross(fr.f,fr.d);}
 
+// ═══ STEAM REVIEW S1 — THE QUESTION. Seeded at the forge, answered at the core: what did the
+// survey lose when the lights went out? Found-text beats, fired once per save through the exact
+// same logCard overlay the POI logs and departure letters already use (dks-voice register: flat,
+// second person, no metaphor, the tenderness sideways). Also carries S5's tide-folk beat and letters —
+// same beat machinery, different id. game.beats={} is added defensively; storyBeat() no-ops on an
+// unknown id so a guarded call from any other chunk (typeof storyBeat==='function'&&storyBeat('x'))
+// is always safe to land before or after this chunk does. ═══
+const BEATS={
+ first_beacon:{kind:'SURVEY LOG · FIRST LIGHT',
+  text:"The relay's base plate carries a stamp: SURVEY NET, UNIT 1 OF MANY. Whoever laid the first one wrote the count expecting to need it. You are number one again, on a different chart. The old network doesn't answer anymore. You checked already. Somewhere between here and the core, all of them went dark at once. Nobody wrote down why."},
+ first_foreign_landing:{kind:'SURVEY LOG · FOREIGN GROUND',
+  text:"Foreign-contact protocol, printed still legible on a plate half-buried at the beacon site: DO NOT ASSUME THE GROUND KNOWS YOU. The next line is scratched out by hand, in different ink: it never did, and I loved it anyway. Someone amended the manual after they'd already lived here a while. You're standing exactly where they stood to write it."},
+ cross_arm:{kind:'CHART ANNOTATION',
+  text:"The survey drew the arms as if they mattered: spurs off one wheel, no border between them you could ever stand on. Then somebody crossed one anyway and wrote it down. Felt like something, crossing. Couldn't tell you what. The log ends there. You just did what they did, same as they did it, and it still doesn't have a name."},
+ hold_letter:{kind:'A LETTER · UNDER THE GLASS',
+  text:"Folded into the Hold's chart table, under the glass: a letter never sent, addressed to whoever finds this rock after me. It says the survey stopped answering the day the lights went out across the network, all at once, no warning worth the name. It says: I kept flying anyway. It doesn't say why. You fold it back exactly how you found it."},
+ core_answer:{kind:'AT THE CORE',
+  text:"The dark doesn't answer. It didn't need to. The lights went out on the survey's own crews first, the same night, all at once. They kept transmitting anyway, past their own dark. Nobody wrote down a reason. You carried a lot of names to learn that much."},
+ // S5 — first contact expanded past the toast, same machinery, tide-folk's own register
+ tidefolk_first_contact:{kind:'FIRST CONTACT · TIDE-FOLK',
+  text:"They don't wave from the shore. They wait for the third wave, then answer on it. Someone in your crew asks why. The nearest one says the tide has seen it twice now. Meaning you. It has decided something about you that the water isn't sharing yet."}
+};
+// fired once per save (game.beats persists in the slot same as game.letters/game.contact). Unknown
+// ids and repeats are silent no-ops, so every call site elsewhere is a bare guarded one-liner.
+function storyBeat(id){
+  const b=BEATS[id];if(!b)return false;
+  game.beats=game.beats||{};if(game.beats[id])return false;
+  game.beats[id]=1;
+  const lc=document.getElementById('logCard');
+  document.getElementById('logKind').textContent=b.kind;
+  document.getElementById('logBody').innerHTML='<div style="color:#B8BECC;line-height:1.5">'+b.text+'</div>';
+  const rb=document.getElementById('recruitBtn');rb.style.display='none';pendingFork=null;
+  document.getElementById('raiseHomeBtn').style.display='none';pendingHomeCrewI=null;
+  lc.style.display='block';
+  saveSlot();
+  return true;
+}
+// S1 — the forge seed: one line, the charter the survey left behind. HANDOFF: 13c (the forge) shows
+// this once, at forge time, before the question ever gets a beat to answer it.
+const FORGE_SEED_LINE="The charter's scorched past the seal, but one line reads clean: find out what we lost when the lights went dark.";
+// S5 — a departure-letter PAIR specific to tide-folk (they leave with the tide, not off a want-axis
+// miss). Lane D's departureLetter (10b) special-cases sp.key==='tidefolk' to pick from this pool
+// instead of DEPARTURE_LETTERS — same signature, same logCard, one line picked at random.
+const SPECIES_LETTERS={
+ tidefolk:["waited for the third wave out, same as they waited for it in. didn't say goodbye. the tide doesn't, so neither did they.",
+           "left when the water told them to and not a tide before it. wrote that a wall raised too fast never once asked the shore first."]};
 // ─── LIFE — a seeded grammar, not a hardcoded zoo. Flora grows in clusters, the way things
 // actually grow; fauna gets a body plan and a gait, and most of it would rather you kept
 // your distance. Same seed, same world, same creatures — every time. ───
@@ -7325,6 +8490,37 @@ function stepFauna(fa,dt,actorD){
 // ─── FAUNA BODIES — full voxel bodies per plan, baked once per species-kin and cached. Legs are
 // TAGGED so the draw can swing them with the gait; the sculptor's rules apply: shapes, not blobs. ───
 const _fauC={};
+// F4 (Lane E) — a small standalone rock thumbnail for the title's slot list: hull SILHOUETTE (by
+// craft.shape, same bump-per-terrain math as drawCraft2D in 13c) shaded in the craft's ECOSYSTEM
+// ramp. Its own tiny canvas, own low internal resolution, drawn with plain ctx.fillRect exactly like
+// the title's own drawTitlePlanet (03b) — no dependency on the main game framebuffer (opq/add), no
+// depth buffer, no live game state beyond the one craft object handed in. Cached per (shape, eco,
+// size) so repeated calls (renderStart re-renders all three slots) redraw nothing already made.
+const _rockThumbCache=new Map();
+function renderRockThumb(craft,size){
+  size=size||64;
+  const shape=(craft&&craft.shape)||'rolling',ecoK=(craft&&craft.ecosystem)||'meadow';
+  const key=shape+'|'+ecoK+'|'+size;
+  const hit=_rockThumbCache.get(key);if(hit)return hit;
+  const cv=document.createElement('canvas'),N=28;cv.width=N;cv.height=N;
+  const cx2=cv.getContext('2d');
+  const eco=ecoOf(ecoK),ramp=eco.ramp,shadow=dark2(ramp[0]),base=ramp[0],lit=ramp[1],hi=ramp[2];
+  const bumpAmt=shape==='mountainous'?0.12:shape==='rocky'?0.1:shape==='mixed'?0.06:shape==='cratered'?0.04:0.02;
+  const bumpAt=ang=>(Math.sin(ang*3+1.3)*0.5+Math.sin(ang*7+2)*0.32+Math.sin(ang*13+5)*0.18)*bumpAmt;
+  const ccx=N/2,ccy=N/2,ry=N*0.42,Lx=-0.5,Ly=-0.55,Lz=0.67;
+  for(let j=-ry-2;j<=ry+2;j++)for(let i=-ry-2;i<=ry+2;i++){
+    const ang=Math.atan2(j,i),rad=ry*(1+bumpAt(ang)),nx=i/rad,ny=j/rad,q=nx*nx+ny*ny;if(q>1)continue;
+    const nz=Math.sqrt(Math.max(0,1-q)),t=(nx*Lx+ny*Ly+nz*Lz+1)*0.5;
+    const lon=Math.atan2(nx,nz),h=ihash((((lon*4)|0)+40)*131+(((ny*7)|0)+40)*401+7);
+    let col=t>0.66?hi:t>0.4?lit:t>0.16?base:shadow;
+    if(shape==='cratered'){if(h>0.8)col=shadow;else if(h>0.73)col=dark2(base);}
+    else if(shape==='rocky'){if(h<0.24)col=(h<0.12?dark2(C.steel):C.steel);}
+    else if(shape==='forest'){if(t>0.3&&h>0.5)col=(h>0.8?lit:dark2(lit));}
+    else if(shape==='mountainous'){if(ny<-0.12&&t>0.5&&h>0.42)col=C.white;else if(h<0.2)col=C.steel;}
+    else if(shape==='rolling'){if(t>0.5&&h>0.86)col=lit;}
+    else{if(t>0.45&&h>0.82)col=lit;if(h<0.14)col=dark2(base);}
+    cx2.fillStyle='rgb('+col[0]+','+col[1]+','+col[2]+')';cx2.fillRect((ccx+i)|0,(ccy+j)|0,1,1);}
+  _rockThumbCache.set(key,cv);return cv;}
 // ═══ THE BESTIARY — ~30 body plans from the natural and science-fictional worlds, crossed with
 // FEATURE MODULES (horns, sails, shells, wings, trunks, lures, twin heads...) rolled per species.
 // plans × modules × diet palettes × kin = a fauna space big enough that worlds don't repeat.
@@ -7546,6 +8742,11 @@ function shadeSurface(dx,dy,dz,hh,grad,tex0){
   // the terminator is RAGGED, not ruled: each cell jitters its own night cut, so dusk arrives
   // as a dithered band instead of a hard line ruled across the globe
   const nightCut=-0.06+(ihash((qx*31+qy*57+qz*13)>>>0)-0.5)*0.16;
+  // F3 — a warm glow right where the sun is: a thin band, tied directly to the live sunL this whole
+  // function reads, so it visibly SWEEPS the globe as the day turns (the orbit view is never a
+  // static ball). Terrain-side use only (the liquid branch above already returned).
+  const termK=Math.max(0,1-Math.abs(lit-nightCut)/0.05);
+  const termGlow=col=>termK<=0.001?col:[col[0]+(C.amber[0]-col[0])*termK*0.4,col[1]+(C.amber[1]-col[1])*termK*0.4,col[2]+(C.amber[2]-col[2])*termK*0.4];
   if(lit<nightCut){
     // the dark side reads the SAME relief as the day side (slope + height + texture), just mapped
     // into dark tones with a dim starlight floor — so the continents/craters/mountains you see lit
@@ -7559,7 +8760,7 @@ function shadeSurface(dx,dy,dz,hh,grad,tex0){
     t2+=(ihash((qx*53+qy*29+qz*17)>>>0)<0.5?-0.05:0.05);
     const star=(fx.night===0?0.46:fx.night===1?0.36:0.28)+Math.max(0,lit+0.06)*1.8;   // faint, lifts toward the terminator
     t2*=Math.min(0.62,star);
-    return t2>0.5?dark2(ramp[2]):t2>0.32?dark2(ramp[1]):t2>0.16?rampD:dark2(rampD);}
+    return termGlow(t2>0.5?dark2(ramp[2]):t2>0.32?dark2(ramp[1]):t2>0.16?rampD:dark2(rampD));}
   const contMul=fx.cont===0?0.65:fx.cont===2?1.5:1,nightBase=fx.night===0?0.5:fx.night===1?0.35:0.22;
   const tex=tex0!==undefined?tex0:n3(dx*9+11,dy*9+11,dz*9+11,surf.seed^42)-0.5;
   if(hh>surf.snowLevel){const sn=Math.min(1,(hh-surf.snowLevel)*0.5);   // snow caps — thinning smoothly on steep faces
@@ -7568,7 +8769,7 @@ function shadeSurface(dx,dy,dz,hh,grad,tex0){
   let t2=0.4+(grad*0.75+hh*0.03)*contMul+tex*0.55;
   t2+=(ihash((qx*53+qy*29+qz*17)>>>0)<0.5?-0.05:0.05);
   t2*=Math.min(1,nightBase+lit*1.1);
-  return t2>0.72?ramp[2]:t2>0.42?ramp[1]:t2>0.18?ramp[0]:rampD;
+  return termGlow(t2>0.72?ramp[2]:t2>0.42?ramp[1]:t2>0.18?ramp[0]:rampD);
 }
 // THE UNIFIED PLANET: cast a ray per screen cell, intersect the height-fielded sphere, shade the hit.
 // This works at ANY altitude — from orbit (the whole marble) down to skimming the surface — because
@@ -7649,7 +8850,10 @@ function drawGlobe(dt,gzoom){
    gUp=vnorm([gUp[0]-dd*gDir[0],gUp[1]-dd*gDir[1],gUp[2]-dd*gDir[2]]);}
   const eased=gzoom*gzoom*(3-2*gzoom);
   const gAlt=(R*0.05+2)+(R*3.4-(R*0.05+2))*eased;      // near: skims the surface · far: a whole marble with space around it
-  const dist=R+gAlt;
+  // pad zoom (Lane A handoff): surf._gZoom 0..1 (0.5 = the fixed vantage) blends the rock-globe view's camera
+  // distance ×1.35 (out) to ×0.7 (in); the drop-descent camera never reads it.
+  const zoomMul=(typeof inRockGlobe==='function'&&inRockGlobe())?(1.35-0.65*(surf._gZoom!=null?surf._gZoom:0.5)):1;
+  const dist=(R+gAlt)*zoomMul;
   surf._gDist=dist;   // TOWN ERA Run 4 — globePickDir needs this frame's camera distance to invert the raycast; stashed here, read there
   // ONE camera, poses blended by the zoom so orbit→surface is a single continuous move (the ray-cast
   // planet renders from any pose, so unlike the old star-map ball this can land in the ground framing):
@@ -8057,7 +9261,10 @@ function frameSurface(dt){
     if(bot.swim&&!bot._wasSwim){bot._wasSwim=true;burst(fr.d,LQs.lv,10,2.2,C.bluesh,0.4,7);shake(0.12);}
     if(!bot.swim)bot._wasSwim=false;
     bot.runT=keyThrust()?(bot.runT||0)+dt:0;
-    const run=Math.min(1,bot.runT/0.9),vmax=hv?9:bot.swim?1.35:(2.1+run*1.1);
+    // M3 — a landed trick grants a brief speed boost on the board (decays here every frame; set
+    // where a trick lands, further down this same function).
+    bot.trickBoostT=Math.max(0,(bot.trickBoostT||0)-dt);
+    const run=Math.min(1,bot.runT/0.9),trickBoost=(hv&&bot.trickBoostT>0)?3:0,vmax=hv?9+trickBoost:bot.swim?1.35:(2.1+run*1.1);
     if(keyThrust())bot.v=Math.min(vmax,bot.v+(hv?18:bot.swim?5:14)*dt);
     else bot.v=Math.max(0,bot.v-(hv?3:bot.swim?2.5:9)*dt);                // foot stops crisp; the board glides on; water lets you drift
     const steer=(keys['d']||keys['arrowright']?1:0)-(keys['a']||keys['arrowleft']?1:0)+(pad.active?pad.lx:0);
@@ -8105,7 +9312,11 @@ function frameSurface(dt){
     bot.jbuf=Math.max(0,(bot.jbuf||0)-dt);
     if(bot.grounded&&bot.jbuf>0){bot.jbuf=0;bot.jumpQ=true;}              // the early press fires the frame you land
     if(bot.jumpQ){bot.jumpQ=false;bot.grounded=false;bot.coyote=0;bot.crouch=0;
-      bot.jv=bot.swim?3.6:hv?6.0:5.3;bot.sq=1.28;bot.trick=0;bot.swim=false;   // instant launch — the squash IS the wind-up
+      // M3 — a filled kick meter (2+ clean tricks in a row, no fall) raises THIS hop once, enough to
+      // clear a ridge you'd otherwise walk around, then spends itself.
+      const kickBoost=(!bot.swim&&bot.kickReady)?1.8:0;
+      bot.jv=bot.swim?3.6:(hv?6.0:5.3)+kickBoost;bot.sq=1.28;bot.trick=0;bot.swim=false;   // instant launch — the squash IS the wind-up
+      if(kickBoost>0){bot.kickReady=false;bot.trickChain=0;}
       bot._alt=gHn+Math.max(0,bot.jalt||0);
       burst(fr.d,bot._alt,6,2,surf.ramp[0],0.3,7);}
     if(!bot.grounded){
@@ -8132,8 +9343,14 @@ function frameSurface(dt){
           if(!bad&&parts.length){const nm=parts.join(' + ');
             toast('◄► '+nm+(parts.length>1?' — filthy':' — clean'),1.8);
             bot.v=Math.min(11,bot.v+1.1+0.6*parts.length);freeze(0.03);shake(0.3+0.12*parts.length);
-            burst(fr.d,gHn,8+4*parts.length,2.5,engineOf(game.craft.engine).c[2],0.4,7);}
-          else{toast('under-rotated — eat moss',1.6);bot.v*=0.35;bot.sq=1.45;shake(0.5);}}
+            burst(fr.d,gHn,8+4*parts.length,2.5,engineOf(game.craft.engine).c[2],0.4,7);
+            typeof sfx==='function'&&sfx('trick');
+            // M3 — a landed trick grants a brief speed boost, and a clean chain (2+, no fall) fills
+            // the kick meter for the next hop
+            bot.trickBoostT=1.4;
+            bot.trickChain=(bot.trickChain||0)+1;
+            if(bot.trickChain>=2){bot.kickReady=true;typeof achieve==='function'&&achieve('trick_chain');}}
+          else{toast('under-rotated — eat moss',1.6);bot.v*=0.35;bot.sq=1.45;shake(0.5);bot.trickChain=0;}}
         else{burst(fr.d,gHn,6,Math.min(2.4,1+impact*0.2),surf.ramp[0],0.28,7);
           shake(Math.min(0.28,impact*0.04));}
         bot.trick=0;bot.flip=0;bot.kick=0;bot._kick=0;}}
@@ -8161,6 +9378,7 @@ function frameSurface(dt){
     headAlt=gH+1.9+Math.min(1,bot.v)*0.4+Math.max(0,(bot.jalt||0)-2);     // small hops keep the steady cam; a cliff fall the camera FOLLOWS
     if(surf._inCave||surf._inHold){ch=2.1;P=0.16;headAlt=gH+(bot.jalt||0)+1.5;}}   // under stone OR inside the Hold, the camera pulls IN — same seam, it never noclips through the roof/walls
   else{ch=Math.max(17,chase*1.2);P=0.3;headAlt=surf.sAlt+2.2;}   // in the shell the camera hangs WELL back (~5×) — you fly over the world, not inside the hull
+  headAlt-=(typeof camDipOffset==='function'?camDipOffset(dt):0);   // F2 — the touchdown dip, eased back to nothing over ~120ms
   const sunL=surf.sunL;
   // ── MANUAL DESCENT PHYSICS (Run 1) — gz IS the altitude now while surf.drop.active: gravity pulls
   // it down, drag opposes the fall, SPACE burns against it. drawGlobe's camera (below) still just
@@ -8206,11 +9424,20 @@ function frameSurface(dt){
     if(dropping&&speed>DROP_CLEAN_VZ){
       surf.drop.vz=0.16;gz=Math.min(1,gz+0.1);surf.drop.rattle=DROP_RATTLE_DUR;surf._bounceLock=true;
       burst(surf.shipF.d,sphHv(surf.shipF.d),26,6,surf.ramp[0],0.8,7);shake(2.2);freeze(0.09);
-      toast('bounce! — too hot, systems rattled',2);
+      // F2 — TOUCHDOWN AS A MOMENT: camera dip scaled by impact, the thud, a one-word toast, and the
+      // bounce's small legible cost (systems rattled is already on the HUD via dropHud below).
+      typeof camDip==='function'&&camDip(Math.min(1.4,speed/DROP_CLEAN_VZ));
+      typeof sfx==='function'&&sfx('bounce');typeof achieve==='function'&&achieve('hard_landing');
+      toast('bounced',1.6);
+      game.fuel=Math.max(0,game.fuel-2);paintRes();
     } else {
       surf._touched=true;
       if(dropping)surf.drop.active=false;
       burst(surf.shipF.d,sphHv(surf.shipF.d),18,5,surf.ramp[0],0.6,7);shake(1.4);freeze(0.06);
+      const hardLanding=dropping&&speed>DROP_CLEAN_VZ*0.55;
+      typeof camDip==='function'&&camDip(dropping?Math.min(1,speed/DROP_CLEAN_VZ):0.3);
+      typeof sfx==='function'&&sfx(hardLanding?'thud_hard':'thud_soft');
+      if(dropping)toast(hardLanding?'hard':'clean',1.4);
       if(surf._autoExit||dropping){surf._autoExit=false;ship.v=0;footAct();}
     }
   }
@@ -8682,7 +9909,7 @@ function frameSurface(dt){
       if(ad<2.2){dep.got=true;const mk=surf.matterKind||'iron';gainMatter(mk,dep.val);game.collected[surf.vi+':'+surf.pi+':'+i]=1;chartDirty=true;
         let ctoast='';
         if(dep.cult){const cv=Math.max(1,(dep.val/2)|0);gainCultMat(dep.cult,cv);ctoast=' · +'+cv+' '+CULTMAT[dep.cult].label;}   // TOWN ERA: the culture-material half of the same pickup
-        burst(dep.d,gh,12,3,C.amber,0.6,7);shake(0.25);toast('+'+dep.val+' '+MATTER[mk].label+' matter'+ctoast);paintRes();}}}
+        burst(dep.d,gh,12,3,C.amber,0.6,7);shake(0.25);typeof sfx==='function'&&sfx('pickup');toast('+'+dep.val+' '+MATTER[mk].label+' matter'+ctoast);paintRes();}}}
   // the ship: parked human-scale, with a beacon column up its LOCAL sky when you're away.
   // On YOUR ROCK there's no drop-ship to park — the rock IS your craft — so it's hidden there.
   if(!surf.isRock){const sF=surf.shipF,sga=sphHv(sF.d),sAlt=surf.sAlt;
@@ -8768,9 +9995,16 @@ function frameSurface(dt){
   // STAY HERE — the homestead's armed confirm (homesteadAct) relaxes on its own after a few seconds.
   if(stayArm>0)stayArm-=dt;
   const lit=vdot(fd,sunL);
+  typeof stepDayNightTurn==='function'&&stepDayNightTurn(lit);   // F1/F3 — fires sfx('day')/sfx('night') on the actual crossing, once
   const dropHud=(surf.drop&&surf.drop.active)?
     ' · ALT '+Math.round(Math.max(0,surf.drop.hudAlt||0))+' · '+(surf.drop.hudSpd>0.5?'DESCENDING '+Math.round(surf.drop.hudSpd)+'/s':surf.drop.hudSpd<-0.5?'CLIMBING '+Math.round(-surf.drop.hudSpd)+'/s':'HOLDING')
     +(surf.drop.rattle>0?' · systems rattled':'') : '';
+  // M4 — reticle feedback before the throw: what grapTarget() would actually hit, or that nothing's
+  // there. grapReticle is written every frame by drawGrapple() (04a) just above, only while idle.
+  const grapHud=(onFoot&&!surf.lift&&!grap)?
+    ' · grapple · '+(grapReticle?(grapReticle.kind==='flora'?'tree':grapReticle.kind==='build'?'build':'stone'):'out of reach') : '';
+  // M3 — the filled kick meter, named on the status line (no score screen — this is the only readout)
+  const kickHud=(onFoot&&bot.kickReady)?' · kick ready':'';
   document.getElementById('status').textContent=inRockGlobe()?                                        // TOWN ERA Run 4 — the cursor readout, live every frame (gCurDir/gCurHit already track the mouse)
     (surf.name+' · orbit build view'+(gHeatOn?' · HEAT ON':'')+' · '+(gPlaceKey?('placing '+RECIPES[gPlaceKey].label.toLowerCase()+' — click your rock'):(gCurHit?globeHitLabel(gCurHit):'point at your rock')))
     :surf.name+' · '+surf.ty
@@ -8779,6 +10013,7 @@ function frameSurface(dt){
     +(lit<-0.06?' · night':lit<0.12?' · dusk':'')
     +(surf.lift?' · lifting off':onFoot?' · on foot':surf.drop&&surf.drop.active?' · manual descent':' · low flight')
     +dropHud
+    +grapHud+kickHud
     +(residentHere?' · '+crewNearLabel(residentHere):'');   // CREW NAME-ON-RETICLE — fades back out the instant nobody's near, same recompute this line already does every frame
 }
 
@@ -9122,17 +10357,32 @@ function mkApp(r,forceCloak,basePal){
 }
 function strHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function appearanceFor(seed){return mkApp(mulberry32((seed>>>0)||1));}          // a stranger — anything goes
+// F5 — "make the town visibly yours": the drifter's own look keys off game.craft too, not only the
+// shell panel you picked. The hull (game.craft.shape — the terrain your rock was forged with) tints
+// the poncho a touch toward that rock's own character; the engine leaves one small accent (the trim
+// highlight). Subtle by design — two palette entries, no new geometry — the poncho you actually
+// chose still leads; this only ever nudges it toward the rock you're flying.
+const CRAFT_HULL_TONE={rolling:C.green,mountainous:C.steel,rocky:C.goldsh,forest:C.greensh,cratered:C.silver,mixed:C.viol};
+const _mix3=(a,b,t)=>[a[0]+(b[0]-a[0])*t|0,a[1]+(b[1]-a[1])*t|0,a[2]+(b[2]-a[2])*t|0];
+function craftFigureTouch(pal){
+  const cr=typeof game!=='undefined'&&game.craft;if(!cr)return pal;
+  const tone=CRAFT_HULL_TONE[cr.shape];
+  const out=tone?{...pal,D:_mix3(pal.D,tone,0.3)}:{...pal};
+  out.L=(typeof engineOf==='function'&&cr.engine)?engineOf(cr.engine).c[2]:pal.L;
+  return out;
+}
 let _pda=null,_pdaKey='';
-function playerDisplayApp(){const key=shell.poncho+'/'+shell.sash+'/'+shell.mark;  // the live walker's own look, rebuilt when you change kit
+function playerDisplayApp(){const cr=typeof game!=='undefined'&&game.craft;
+  const key=shell.poncho+'/'+shell.sash+'/'+shell.mark+'/'+(cr&&cr.shape)+'/'+(cr&&cr.engine);  // the live walker's own look, rebuilt when you change kit (or your craft)
   if(_pda&&_pdaKey===key)return _pda;
   const bp=ponchoPal();
-  _pda={sil:'cloak',pal:{H:bp.H,D:bp.D,R:bp.R,S:SASHES[(shell.sash||0)%SASHES.length],L:bp.L||C.bone,B:bp.B,'.':null},
+  _pda={sil:'cloak',pal:craftFigureTouch({H:bp.H,D:bp.D,R:bp.R,S:SASHES[(shell.sash||0)%SASHES.length],L:bp.L||C.bone,B:bp.B,'.':null}),
     eye:shellSet()[3],emblem:(shell.mark|0)%EMBLEMS.length,emblemC:C.white};
   _pdaKey=key;return _pda;
 }
 function playerApp(seed){const r=mulberry32((seed>>>0)||1),bp=ponchoPal();       // a version of YOU — your garment and your chosen trim
   return {sil:'cloak',
-    pal:{H:bp.H,D:bp.D,R:bp.R,S:SASHES[(shell.sash||0)%SASHES.length],L:bp.L||C.bone,B:bp.B,'.':null},
+    pal:craftFigureTouch({H:bp.H,D:bp.D,R:bp.R,S:SASHES[(shell.sash||0)%SASHES.length],L:bp.L||C.bone,B:bp.B,'.':null}),
     eye:FIG_EYES[(r()*FIG_EYES.length)|0],                                        // a little life between siblings
     emblem:(shell.mark|0)%EMBLEMS.length, emblemC:EMBLEM_COLS[(r()*EMBLEM_COLS.length)|0],
     hgt:0.92+r()*0.16};
@@ -9177,7 +10427,7 @@ function paintChrome(){
       :mode==='surface'?(onFoot?(bot.hover?'<b>L-stick</b> ride &middot; <b>'+g.a+'</b> ollie &middot; air: <b>L-stick</b> spin/flip &middot; <b>'+g.lb+'</b> kickflip &middot; hold stick back to manual &middot; <b>'+g.lb+'</b> off board'
                                 :(surf&&surf.isRock)?'<b>L-stick</b> walk &middot; <b>'+g.a+'</b> jump &middot; <b>'+g.x+'</b> fire the engine (at it) &mdash; back to the galaxy':'<b>L-stick</b> walk &middot; <b>'+g.a+'</b> jump &middot; <b>'+g.x+'</b> inspect / board')
                                :(surf&&surf.drop&&surf.drop.active)?'<b>L-stick</b> steer &middot; hold <b>'+g.a+'</b> to thrust/brake the fall'
-                               :inRockGlobe()?'<b>'+g.a+'</b> back to your feet'
+                               :inRockGlobe()?'<b>L-stick</b> aim &middot; <b>'+g.a+'</b> place/inspect &middot; <b>'+g.x+'</b> inspect &middot; <b>'+g.y+'</b> heat &middot; <b>'+g.b+'</b> back to your feet'
                                :(surf&&gzShown>0.1)?'<b>'+g.a+'</b> break orbit'
                                :'<b>L-stick</b> skim &middot; <b>'+g.a+'</b> lift off &middot; <b>'+g.x+'</b> exit')
       :mode==='rockwalk'?'<b>L-stick</b> walk your rock &middot; <b>'+g.a+'</b> jump &middot; <b>'+g.x+'</b> back to the galaxy'
@@ -9187,7 +10437,7 @@ function paintChrome(){
       :mode==='surface'?(onFoot?(bot.hover?'<b>WASD</b> ride &middot; <b>SPACE</b> ollie &middot; air: <b>A/D</b> spin &middot; <b>W/S</b> flip &middot; <b>H</b> kickflip &middot; hold <b>S</b> to manual &middot; <b>H</b> off board'
                                 :(surf&&surf.isRock)?'<b>WASD</b> walk &middot; <b>B</b> build &middot; <b>H</b> hoverboard &middot; <b>J</b> grapple &middot; <b>F</b> fire the engine &mdash; back to the galaxy':'<b>WASD</b> walk &middot; <b>SPACE</b> jump &middot; <b>H</b> hoverboard &middot; <b>J</b> grapple &middot; <b>F</b> inspect / board the ship')
                                :(surf&&surf.drop&&surf.drop.active)?'<b>WASD</b> steer &middot; hold <b>SPACE</b> to thrust/brake the fall &middot; touch down slow for a clean landing'
-                               :inRockGlobe()?'<b>click</b> inspect/place &middot; <b>drag</b> spin &middot; <b>B</b> build &middot; <b>T</b> heat overlay &middot; <b>SPACE</b> back to your feet'
+                               :inRockGlobe()?'<b>click</b> inspect/place &middot; <b>F</b> inspect &middot; <b>drag</b> spin &middot; <b>B</b> build &middot; <b>T</b> heat overlay &middot; <b>SPACE</b> back to your feet'
                                :(surf&&gzShown>0.1)?'<b>E</b> to drop bay &middot; <b>Q</b> auto-drop &middot; <b>SPACE</b> break orbit &middot; drag to look around'
                                :'<b>WASD</b> skim &middot; <b>SPACE</b> lift off &middot; <b>F</b> exit')
       :mode==='rockwalk'?'<b>WASD</b> walk your rock &middot; <b>SPACE</b> jump &middot; <b>H</b> hoverboard &middot; <b>F</b> back to the galaxy'
@@ -9264,7 +10514,7 @@ function cabinFlip(dir){cabinScreen=(cabinScreen+(dir||1)+CABIN_SCREENS.length)%
 const CABIN=[
   {x:0.28,label:'the window',sub:'resume the survey',act:()=>exitCabin()},
   {x:0.72,label:'the console',sub:'settings · save · quit',act:()=>{openSettings();showMenuScreen('main');}}];
-function enterCabin(){if(mode==='cabin')return;cabinPrev=mode;mode='cabin';cabinX=0.5;cabinActive=-1;cabinT=0;cabinScreen=0;
+function enterCabin(){if(mode==='cabin')return;if(document.exitPointerLock)document.exitPointerLock();cabinPrev=mode;mode='cabin';cabinX=0.5;cabinActive=-1;cabinT=0;cabinScreen=0;
   // grab the last frame of the outside as the viewscreen's feed — BEFORE setPix reallocates the buffer
   try{if(!cabinFeed||cabinFeed.length!==d.length)cabinFeed=new Uint8ClampedArray(d.length);cabinFeed.set(d);cabinFeedW=W;cabinFeedH=H;}catch(e){cabinFeed=null;cabinFeedW=0;}
   setPix(3);
@@ -9402,20 +10652,56 @@ function drawCraft2D(cx,cy,S,shape,eng,spin){
   for(let j=0;j<7;j++)for(let i=-6+j;i<=6-j;i++)opq(cx+i,ty0-j,j<2?shellSet()[0]:C.deep,1);
   add(cx,ty0-7,shellSet()[3],0.7+0.3*Math.sin(T*3));
 }
-function forgePaint(){const c=game.craft;document.getElementById('fShape').textContent=c.shape;
-  document.getElementById('fEngine').textContent=engineOf(c.engine).label;
+// F4 (Lane E) — each option row gets a little pixel chip in its own colour, so the forge reads as
+// choosing a MATERIAL, not paging through a plain word list. Engine and ecosystem chips are their own
+// global colour tables (engineOf().c, ecoOf().ramp); terrain has no colour table of its own, so
+// FCHIP_TERR gives it one small representative swatch off the same palette drawCraft2D shades it in.
+const FCHIP_TERR={rolling:'green',mountainous:'white',rocky:'steel',forest:'greensh',cratered:'deep',mixed:'bone'};
+function fChip(col){return '<span style="display:inline-block;width:8px;height:8px;margin-right:7px;vertical-align:middle;background:rgb('+col.join(',')+');border:1px solid rgba(0,0,0,.4);border-radius:2px"></span>';}
+function forgePaint(){const c=game.craft,eng=engineOf(c.engine),eco=ecoOf(c.ecosystem);
+  document.getElementById('fShape').innerHTML=fChip(C[FCHIP_TERR[c.shape]]||C.steel)+c.shape;
+  document.getElementById('fEngine').innerHTML=fChip(eng.c[1])+eng.label;
   document.getElementById('fSize').textContent=sizeOf(c.size).label;
-  document.getElementById('fEco').textContent=ecoOf(c.ecosystem).label;document.getElementById('fName').value=c.name;}
-function openForge(slot){forgeSlot=slot;game=freshGame();chart=game.chart;mode='forge';setPix(4);
+  document.getElementById('fEco').innerHTML=fChip(eco.ramp[1])+eco.label;document.getElementById('fName').value=c.name;}
+function openForge(slot){if(document.exitPointerLock)document.exitPointerLock();forgeSlot=slot;game=freshGame();chart=game.chart;mode='forge';setPix(4);
   document.getElementById('start').style.display='none';document.getElementById('forge').style.display='block';
   ['mapBtn','gearBtn','ctxBtn','footBtn'].forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById('res').style.display='none';forgePaint();}
+  document.getElementById('res').style.display='none';forgePaint();
+  // handoff (Lane C, S1) — the charter's one legible line, shown once in the forge's intro copy. Lazy +
+  // guarded: FORGE_SEED_LINE is a global Lane C owns elsewhere in the chunk order; by the time a player
+  // actually opens the forge every chunk has already run, so there's no load-order risk doing this here
+  // (unlike a top-level reference, which is exactly what broke the build earlier this session).
+  if(typeof FORGE_SEED_LINE==='string'){
+    const note=document.querySelector('#forge .fnote');
+    if(note&&!note.querySelector('.seedLine'))
+      note.insertAdjacentHTML('beforeend','<div class="seedLine" style="margin-top:10px;font-style:italic;color:#C6A8E6">"'+FORGE_SEED_LINE+'"</div>');
+  }}
 function launchCraft(){game.craft.name=(document.getElementById('fName').value||'The Wanderer').slice(0,20);
   document.getElementById('forge').style.display='none';beginGame(game,forgeSlot);}
+// F4 (Lane E) — a small ink BENCH the turntable rests on: a flat plinth, 2px-equivalent top edge,
+// drawn straight into the pixel buffer (opq) so it shades/inks exactly like everything else the forge
+// paints — not a DOM overlay. cy/craftR are the same centre/radius frameForge already calls
+// drawCraft2D with, so the bench always sits directly under the hull regardless of window size.
+function drawForgeBench(cx,cy,craftR){
+  const bw=(craftR*2.7)|0,bh=Math.max(3,(craftR*0.16)|0),by=(cy+craftR*0.86)|0,bx=(cx-bw/2)|0;
+  for(let x=0;x<bw;x++)for(let y=0;y<bh;y++)opq(bx+x,by+y,y<2?C.steel:C.deep,1);
+}
+// F4 (Lane E) — the SAME vines/moss/mushrooms/flowers the living title grows around its sign
+// (seedFloraInto/drawFloraItem, 03b), framing the forge's own screen: vines up both edges, a ground
+// scatter along the bottom. Seeded once per resolution and cached; drawn straight onto the main
+// canvas context AFTER putImageData (so it layers over the freshly-painted craft/bench) but BEFORE
+// overlayFX (so it still rides the same scanline/grade pass as everything else in the scene).
+let forgeFloraItems=null,forgeFloraWH=null;
+function drawForgeFlora(t){
+  if(!forgeFloraWH||forgeFloraWH[0]!==W||forgeFloraWH[1]!==H){forgeFloraWH=[W,H];forgeFloraItems=seedFloraInto(W,H);}
+  for(const it of forgeFloraItems)drawFloraItem(ctx,it,t);
+}
 function frameForge(dt){forgeSpin+=dt*0.35;clear();
   for(let k=0;k<130;k++){const x=(ihash(k*7+1)*W)|0,y=(ihash(k*13+3)*H)|0;add(x,y,C.silver,0.25+0.4*ihash(k*3+9));}
-  drawCraft2D((W*0.36)|0,(H*0.5)|0,Math.min(W,H)*0.17,game.craft.shape,game.craft.engine,forgeSpin);
-  prePixelFX();ctx.putImageData(img,0,0);overlayFX();
+  const fcx=(W*0.36)|0,fcy=(H*0.5)|0,fcR=Math.min(W,H)*0.17;
+  drawForgeBench(fcx,fcy,fcR);
+  drawCraft2D(fcx,fcy,fcR,game.craft.shape,game.craft.engine,forgeSpin);
+  prePixelFX();ctx.putImageData(img,0,0);drawForgeFlora(T);overlayFX();
 }
 document.getElementById('forge').addEventListener('click',e=>{
   const c=e.target.getAttribute('data-c');
@@ -9593,6 +10879,29 @@ function leaveRockWalk(){
   rw=null;onFoot=false;mode='space';setPix(4);ship.F=null;
   gz=0;gzShown=0;paintChrome();toast('back to the galaxy',1.5);
 }
+// ─── C4(c) — MOVEMENT WATCHDOG: the unreproduced on-foot soft-lock gets an eyewitness. If a movement
+// key/stick is held ≥3s while mode==='surface'&&onFoot and bot.v never rises off zero, snapshot the
+// full mode/flag state into a ring buffer (last 20) and warn once per episode — so the next report
+// carries its own diagnosis instead of "the game froze." "copy diagnostics" in settings (03e) exports it.
+window.__watchdog=window.__watchdog||[];
+let __wdHeldT=0,__wdWarned=false;
+function movementHeld(){
+  return !!(keys['w']||keys['a']||keys['s']||keys['d']||keys['arrowup']||keys['arrowdown']||keys['arrowleft']||keys['arrowright']||
+    (pad.active&&(Math.abs(pad.lx||0)>0.25||Math.abs(pad.py||0)>0.25)));
+}
+function movementWatchdog(dt){
+  if(setEl.style.display==='flex'){__wdHeldT=0;__wdWarned=false;return;}   // paused — not a real stall
+  if(mode==='surface'&&onFoot&&movementHeld()&&Math.abs(bot.v||0)<0.05){
+    __wdHeldT+=dt;
+    if(__wdHeldT>=3&&!__wdWarned){
+      __wdWarned=true;
+      const snap={t:Date.now(),mode,onFoot,hover:!!bot.hover,grap:!!grap,lift:!!(surf&&surf.lift),
+        inHold:!!(surf&&surf._inHold),gzShown,cabin:mode==='cabin',keys:Object.keys(keys).filter(k=>keys[k])};
+      window.__watchdog.push(snap);if(window.__watchdog.length>20)window.__watchdog.shift();
+      console.warn('movement watchdog — held a direction 3s with bot.v stuck at 0',snap);
+    }
+  }else{__wdHeldT=0;__wdWarned=false;}
+}
 function frame(){
   const now=performance.now()/1000,rdt=Math.min(0.05,now-T);T=now;
   // hit-stop: a frozen beat on impact. Sim halts, the frame still draws — the pause IS the punch.
@@ -9609,6 +10918,7 @@ function frame(){
   // same "every OTHER mode actively re-hides it" contract ctxBtn/footBtn already keep per-mode.
   document.getElementById('autoDropBtn').style.display='none';
   pollGamepad();                          // an Xbox pad drives the same controls as the keyboard
+  movementWatchdog(dt);
   // [gpu] Phase 2 capture gate: mirrors the mode seam below EXACTLY (mode==='surface'&&onFoot) so it's
   // set before any of this frame's paint calls run (frameSurface, several lines down, is where every
   // capturing seam lives) and is correct for every OTHER mode too — space/cabin/rockwalk/forge/map all
