@@ -1,2 +1,2 @@
-:HL["/_next/static/css/b71ddeece7fec0c2.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"privacy","param":null,"prefetchHints":0,"slots":{"children":{"name":"booka-ducka-ding-dong","param":null,"prefetchHints":0,"slots":{"children":{"name":"choices","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}}}},"staleTime":300,"buildId":"TAZ_ijczvPW92fEaWPDwX"}
+:HL["/_next/static/css/62e782b8d427ac94.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"privacy","param":null,"prefetchHints":4192,"slots":{"children":{"name":"booka-ducka-ding-dong","param":null,"prefetchHints":4192,"slots":{"children":{"name":"choices","param":null,"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}}}}}},"staleTime":300,"buildId":"PNsAkiI5daIdKq9YFI8uq"}
